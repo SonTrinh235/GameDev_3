@@ -1,0 +1,31 @@
+import pygame
+
+# Screen
+SCREEN_WIDTH = 1000
+SCREEN_HEIGHT = 600
+TILE_SIZE = 32
+FPS = 60
+
+# Colors
+BG_COLOR = '#060b14'
+PLAYER_COLOR = '#ff4d4d'
+
+# Physics
+GRAVITY = 0.8
+PLAYER_SPEED = 6
+JUMP_SPEED = -16
+TERMINAL_VELOCITY = 12
+
+# Dash
+DASH_SPEED = 18
+DASH_DURATION = 150 
+DASH_COOLDOWN = 600 
+
+# Wall / Grab
+WALL_SLIDE_SPEED = 2
+WALL_FRICTION = 0.5
+
+# Key Mapping
+K_DASH = pygame.K_z
+K_JUMP = pygame.K_x
+K_GRAB = pygame.K_SPACE
