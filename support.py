@@ -24,3 +24,15 @@ def import_cut_graphics(path, size_x=32, size_y=32):
             new_surf.blit(surface, (0, 0), pygame.Rect(x, y, size_x, size_y))
             cut_tiles.append(new_surf)
     return cut_tiles
+
+def import_sprite_sheet(path, frame_width, frame_height):
+    surface = pygame.image.load(path).convert_alpha()
+    sheet_width = surface.get_width()
+    frames = []
+    
+    for x in range(0, sheet_width, frame_width):
+        frame_surf = pygame.Surface((frame_width, frame_height), pygame.SRCALPHA)
+        frame_surf.blit(surface, (0, 0), pygame.Rect(x, 0, frame_width, frame_height))
+        frames.append(frame_surf)
+        
+    return frames

@@ -1,0 +1,50 @@
+{
+    "Map/SizeTest": {
+        "height": 4300,
+        "width": 2
+    },
+    "activeFile": "level1.tmx",
+    "expandedProjectPaths": [
+        "."
+    ],
+    "fileStates": {
+        "": {
+            "scaleInDock": 1,
+            "scaleInEditor": 1
+        },
+        "Gray_Brick.tsx": {
+            "scaleInDock": 1,
+            "scaleInEditor": 1
+        },
+        "level1.tmx": {
+            "scale": 0.75,
+            "selectedLayer": 1,
+            "viewCenter": {
+                "x": 647.3333333333333,
+                "y": 323.33333333333337
+            }
+        },
+        "level1.tmx#Default_Block": {
+            "scaleInDock": 1
+        },
+        "level1.tmx#Gray_Brick": {
+            "scaleInEditor": 1
+        },
+        "level1.tmx#Platform": {
+            "scaleInDock": 1
+        }
+    },
+    "last.imagePath": "C:/Users/admin/Desktop/HocHanh/252/ASM3_Game/Assets/graphics",
+    "map.lastUsedFormat": "tmx",
+    "map.width": 150,
+    "openFiles": [
+        "level1.tmx"
+    ],
+    "project": "untitled.tiled-project",
+    "recentFiles": [
+        "level1.tmx",
+        "Gray_Brick.tsx"
+    ],
+    "tileset.embedInMap": true,
+    "tileset.lastUsedFormat": "tsx"
+}
