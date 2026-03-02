@@ -122,4 +122,27 @@ LEVEL_3 = [
     'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
 ]
 
-LEVEL_DATA = [LEVEL_0, LEVEL_1, LEVEL_2, LEVEL_3]
+LEVEL_4 = [
+    '                                                                                                                                                      ',
+    '                                                                                                                                                      ',
+    '                                                                                                                                                      ',
+    '                                                                                                                                                      ',
+    '                                                                                                                                                      ',
+    '                                                                                             XXXX                                                     ',
+    '                                                                                             XXXX                                                     ',
+    '                                                                                             XXXX                                                     ',
+    '                                                                                             XXXX                                                     ',
+    '                                              XXXX                                           XXXX                                                     ',
+    '                                              XXXX                                           XXXX                                                     ',
+    '                             XXXX             XXXX                                           XXXX                               C                     ',
+    '                             XXXX             XXXX                                           XXXX                             XXXXX                   ',
+    '                             XXXX             XXXX            C                              XXXX                                                     ',
+    '                                                            XXXXX                            XXXX                                           G         ',
+    'P            C               XXXX                                          E                 XXXX                 E                           XXXXX       ',
+    'XXXXX      XXXXX             XXXX             XXXX                      XXXXXXX              XXXX              XXXXXXX                                ',
+    'XXXXX                        XXXX      S      XXXX                      XXXXXXX              XXXX              XXXXXXX                                ',
+    'XXXXX    S       S           XXXX   XXXXXXX   XXXX   S         S        XXXXXXX       S      XXXX       S      XXXXXXX       S        S               ',
+    'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
+]
+
+LEVEL_DATA = [LEVEL_0, LEVEL_1, LEVEL_2, LEVEL_3, LEVEL_4]
