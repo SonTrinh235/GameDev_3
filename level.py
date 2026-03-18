@@ -1,7 +1,7 @@
 import pygame
 from settings import *
 from player import Player
-from sprites import StaticTile, Item, Enemy
+from sprites import StaticTile, Item, Enemy, CrumblingPlatform, SurpriseBlock
 
 class CameraGroup(pygame.sprite.Group):
     def __init__(self):
@@ -14,14 +14,8 @@ class CameraGroup(pygame.sprite.Group):
         self.offset.y += (player.rect.centery - SCREEN_HEIGHT // 2 - self.offset.y) * 0.1
 
         for sprite in self.sprites():
-            if isinstance(sprite, StaticTile):
-                offset_pos = sprite.rect.topleft - self.offset
-                self.display_surface.blit(sprite.image, offset_pos)
-
-        for sprite in self.sprites():
-            if not isinstance(sprite, StaticTile):
-                offset_pos = sprite.rect.topleft - self.offset
-                self.display_surface.blit(sprite.image, offset_pos)
+            offset_pos = sprite.rect.topleft - self.offset
+            self.display_surface.blit(sprite.image, offset_pos)
 
 class Level:
     def __init__(self, level_data, surface_dict, trigger_next_level): 
@@ -30,6 +24,7 @@ class Level:
         self.surfaces = surface_dict
         self.trigger_next_level = trigger_next_level
         
+        # Groups
         self.visible_sprites = CameraGroup()
         self.collision_sprites = pygame.sprite.Group()
         self.item_sprites = pygame.sprite.Group()
@@ -38,9 +33,11 @@ class Level:
         self.spike_sprites = pygame.sprite.Group()
         self.bounce_sprites = pygame.sprite.Group()
         self.door_sprites = pygame.sprite.Group()
+        self.crumble_sprites = pygame.sprite.Group()
+        self.surprise_blocks = pygame.sprite.Group()
+        self.trap_sprites = pygame.sprite.Group() # Nhóm Item01 (Chạm là chết)
         
         self.has_key = False
-
         self.setup_level()
 
     def setup_level(self):
@@ -51,8 +48,7 @@ class Level:
                 
                 if cell == 'X':
                     tile = StaticTile((x, y), TILE_SIZE, self.surfaces['tile'])
-                    self.collision_sprites.add(tile)
-                    self.visible_sprites.add(tile)
+                    self.collision_sprites.add(tile); self.visible_sprites.add(tile)
                 elif cell == 'B':
                     tile = StaticTile((x, y), TILE_SIZE, self.surfaces['bg_tile'])
                     self.visible_sprites.add(tile)
@@ -91,6 +87,18 @@ class Level:
                     goal = StaticTile((x, y), TILE_SIZE, self.surfaces['goal'])
                     self.goal_sprites.add(goal)
                     self.visible_sprites.add(goal)
+                elif cell == 'F':
+                    surf = self.surfaces.get('crumble', self.surfaces.get('tile'))
+                    crumble = CrumblingPlatform((x, y), TILE_SIZE, surf)
+                    self.crumble_sprites.add(crumble); self.visible_sprites.add(crumble); self.collision_sprites.add(crumble)
+                
+                elif cell == 'Q':
+                    n_surf = self.surfaces.get('q_normal')
+                    p_surf = self.surfaces.get('q_popped')
+                    i_surf = self.surfaces.get('Item01')
+                    
+                    q_block = SurpriseBlock((x, y), TILE_SIZE, n_surf, i_surf, p_surf)
+                    self.surprise_blocks.add(q_block); self.visible_sprites.add(q_block); self.collision_sprites.add(q_block)
 
     def reset(self):
         self.visible_sprites.empty()
@@ -101,10 +109,31 @@ class Level:
         self.spike_sprites.empty()
         self.bounce_sprites.empty()
         self.door_sprites.empty()
+        self.crumble_sprites.empty()
+        self.surprise_blocks.empty()
+        self.trap_sprites.empty()
         self.has_key = False
         self.setup_level()
 
     def interaction(self):
+        for block in self.surprise_blocks:
+            head_rect = self.player.rect.move(0, -5).inflate(20, 0)
+            if block.rect.colliderect(head_rect):
+                block.spawn_trap(self.trap_sprites, self.visible_sprites, self.collision_sprites)
+                if self.player.m.direction.y < 0:
+                    self.player.m.direction.y = 0
+
+        for death_sprite in list(self.spike_sprites) + list(self.trap_sprites):
+            if death_sprite.rect.colliderect(self.player.rect):
+                self.reset()
+                return
+
+        for platform in self.crumble_sprites:
+            if platform.rect.colliderect(self.player.rect.move(0, 2)) and self.player.on_ground:
+                platform.start_crumbling(self.crumble_sprites)
+            if platform.activated and platform in self.collision_sprites:
+                self.collision_sprites.remove(platform)
+
         for enemy in self.enemy_sprites.sprites():
             if enemy.rect.colliderect(self.player.rect):
                 if self.player.m.direction.y > 0 and self.player.rect.bottom <= enemy.rect.bottom:
@@ -114,11 +143,6 @@ class Level:
                 else:
                     self.reset()
                     break 
-
-        for spike in self.spike_sprites.sprites():
-            if spike.rect.inflate(-12, -12).colliderect(self.player.rect):
-                self.reset()
-                break
 
         for bounce in self.bounce_sprites.sprites():
             if bounce.rect.colliderect(self.player.rect):
@@ -152,8 +176,7 @@ class Level:
             self.reset()
 
     def run(self):
-        self.visible_sprites.update()
+        self.visible_sprites.update(self.player.rect.center)
         self.interaction()
-        
         self.visible_sprites.custom_draw(self.player)
         self.player.draw_stamina(self.visible_sprites.offset)

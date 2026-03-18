@@ -19,14 +19,16 @@ class Game:
         def get_surf(path, fallback_color):
             try:
                 return pygame.image.load(path).convert_alpha()
-            except:
+            except Exception as e:
+                print(f"[ERROR] Cannot load img at {path}: {e}")
                 surf = pygame.Surface((TILE_SIZE, TILE_SIZE))
                 surf.fill(fallback_color)
                 return surf
 
         self.surfaces = {
-            'tile': get_surf('Assets/graphics/tile.png', 'grey'),
+            'tile': get_surf('Assets/graphics/Brick.png', 'grey'),
             'bg_tile': get_surf('Assets/graphics/bg_tile.png', (50, 50, 50)),
+            'brick':get_surf('Assets/graphics/Brick.png', 'brown'),
             'coin': get_surf('Assets/graphics/Coin.png', 'yellow'),
             'star': get_surf('Assets/graphics/Star.png', 'gold'),
             'enemy': get_surf('Assets/graphics/Signus.png', 'red'),
@@ -35,6 +37,10 @@ class Game:
             'goal': get_surf('Assets/graphics/goal.png', 'green'),
             'key': get_surf('Assets/graphics/key.png', 'cyan'),
             'door': get_surf('Assets/graphics/key_hole.png', 'brown'),
+            'Item01': get_surf('Assets/graphics/Item01.png', 'green'),
+            'Item02': get_surf('Assets/graphics/Item02.png', 'pink'),
+            'q_normal': get_surf('Assets/graphics/Normal.png', 'yellow'),
+            'q_popped': get_surf('Assets/graphics/Popped.png', (100, 100, 100)),
         }
 
     def next_level(self):
@@ -82,7 +88,7 @@ class Game:
 
     def draw_menu(self):
         font = pygame.font.SysFont('Arial', 50)
-        title_surf = font.render('CELESTE CLONE', True, 'gold')
+        title_surf = font.render('Game Development 3', True, 'gold')
         start_surf = font.render('PRESS ENTER TO START', True, 'white')
         
         title_rect = title_surf.get_rect(center = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 50))
