@@ -1,4 +1,5 @@
 import pygame
+import math # Thêm thư viện math để dùng hàm sin cho hiệu ứng lơ lửng
 from settings import *
 
 class StaticTile(pygame.sprite.Sprite):
@@ -14,6 +15,11 @@ class Item(pygame.sprite.Sprite):
         self.frames = []
         self.frame_index = 0
         self.animation_speed = 0.15
+
+        # --- CÁC BIẾN MỚI CHO HIỆU ỨNG CỦA KEY ---
+        self.is_following = False
+        self.target = None
+        self.base_y = pos[1] # Lưu lại tọa độ Y ban đầu để làm gốc cho dao động
 
         if self.item_type in ['coin', 'star']:
             if self.item_type == 'coin':
@@ -49,9 +55,31 @@ class Item(pygame.sprite.Sprite):
             self.frame_index = 0
         self.image = self.frames[int(self.frame_index)]
 
+    def floating_effect(self):
+        time = pygame.time.get_ticks()
+        self.rect.centery = self.base_y + math.sin(time / 200) * 5
+
+    def trailing_effect(self):
+        if self.target:
+            facing_right = getattr(self.target, 'facing_right', True)
+            offset_x = -30 if facing_right else 30
+            
+            target_pos = pygame.math.Vector2(self.target.rect.centerx + offset_x, self.target.rect.centery - 20)
+            
+            current_pos = pygame.math.Vector2(self.rect.center)
+            
+            new_pos = current_pos.lerp(target_pos, 0.1)
+            self.rect.center = (int(new_pos.x), int(new_pos.y))
+
     def update(self):
         if self.item_type in ['coin', 'star'] and len(self.frames) > 0:
             self.animate()
+            
+        if self.item_type == 'key':
+            if not self.is_following:
+                self.floating_effect()
+            else:
+                self.trailing_effect()
 
 class Enemy(pygame.sprite.Sprite):
     def __init__(self, pos, size, surface, collision_sprites):

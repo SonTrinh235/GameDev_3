@@ -33,6 +33,8 @@ class Game:
             'spike': get_surf('Assets/graphics/Spike.png', 'purple'),
             'bounce': get_surf('Assets/graphics/Bounce.png', 'orange'),
             'goal': get_surf('Assets/graphics/goal.png', 'green'),
+            'key': get_surf('Assets/graphics/key.png', 'cyan'),
+            'door': get_surf('Assets/graphics/key_hole.png', 'brown'),
         }
 
     def next_level(self):

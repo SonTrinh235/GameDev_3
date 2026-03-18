@@ -139,15 +139,23 @@ class Movement:
         else:
             self.is_grabbing = False
 
+    # def apply_gravity(self):
+    #     if self.is_grabbing: return 
+        
+    #     self.direction.y += GRAVITY
+    #     if self.direction.y > 12: self.direction.y = 12
+
+    #     if self.p.on_ground:
+    #         self.stamina = self.stamina_max
+    #         self.has_dashed = False
     def apply_gravity(self):
         if self.is_grabbing: return 
-        
         self.direction.y += GRAVITY
         if self.direction.y > 12: self.direction.y = 12
-
         if self.p.on_ground:
             self.stamina = self.stamina_max
             self.has_dashed = False
+            self.can_dash = True 
 
     def start_dash(self, keys):
         self.is_grabbing = False

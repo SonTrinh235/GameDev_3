@@ -127,15 +127,23 @@ class Level:
                 self.player.m.has_dashed = False
                 self.player.rect.bottom = bounce.rect.top
 
-        collided_items = pygame.sprite.spritecollide(self.player, self.item_sprites, True)
+        collided_items = pygame.sprite.spritecollide(self.player, self.item_sprites, False)
         for item in collided_items:
-            if item.item_type == 'key':
+            if item.item_type == 'key' and not item.is_following:
                 self.has_key = True
+                item.is_following = True
+                item.target = self.player
+            elif item.item_type in ['coin', 'star']:
+                item.kill()
 
         if self.has_key:
             for door in self.door_sprites.sprites():
-                if self.player.rect.inflate(4, 4).colliderect(door.rect):
+                if self.player.rect.inflate(10, 10).colliderect(door.rect):
                     door.kill()
+                    self.has_key = False
+                    for item in self.item_sprites.sprites():
+                        if item.item_type == 'key' and item.is_following:
+                            item.kill()
 
         if pygame.sprite.spritecollide(self.player, self.goal_sprites, False):
             self.trigger_next_level()

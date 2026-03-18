@@ -27,18 +27,8 @@ class Player(pygame.sprite.Sprite):
         self.remainder_y = 0.0
 
     def animate(self):
-        if self.m.direction.y < 0 and not self.on_ground:
-            self.display_width = pygame.math.lerp(self.display_width, TILE_SIZE * 0.75, 0.2)
-            self.display_height = pygame.math.lerp(self.display_height, TILE_SIZE * 1.25, 0.2)
-        elif self.m.direction.y > 0 and not self.on_ground:
-            self.display_width = pygame.math.lerp(self.display_width, TILE_SIZE * 1.1, 0.1)
-            self.display_height = pygame.math.lerp(self.display_height, TILE_SIZE * 0.9, 0.1)
-        elif self.on_ground and not self.old_on_ground:
-            self.display_width = TILE_SIZE * 1.5
-            self.display_height = TILE_SIZE * 0.5
-        else:
-            self.display_width = pygame.math.lerp(self.display_width, TILE_SIZE, 0.2)
-            self.display_height = pygame.math.lerp(self.display_height, TILE_SIZE, 0.2)
+        self.display_width = TILE_SIZE
+        self.display_height = TILE_SIZE
 
         target_angle = 0
         if self.on_wall and not self.on_ground:
@@ -46,8 +36,13 @@ class Player(pygame.sprite.Sprite):
         elif self.m.direction.x != 0 and self.on_ground:
             target_angle = -8 if self.m.direction.x > 0 else 8
         self.rotation_angle = pygame.math.lerp(self.rotation_angle, target_angle, 0.15)
-
-        scaled = pygame.transform.scale(self.base_image, (int(self.display_width), int(self.display_height)))
+        temp_image = self.base_image.copy()
+        
+        if self.m.is_dashing:
+            temp_image.fill((255, 255, 255)) 
+        else:
+            temp_image.fill(PLAYER_COLOR)
+        scaled = pygame.transform.scale(temp_image, (int(self.display_width), int(self.display_height)))
         self.image = pygame.transform.rotate(scaled, self.rotation_angle)
         
         curr_bottom = self.rect.bottom
@@ -93,9 +88,8 @@ class Player(pygame.sprite.Sprite):
                     self.m.direction.y = 0
                     self.remainder_y = 0 
 
-        # Kiểm tra dính sàn (Ground Stickiness)
         if not self.on_ground and self.old_on_ground and self.m.direction.y >= 0:
-            check_rect = self.rect.move(0, 1) # Check dò xuống 1 pixel
+            check_rect = self.rect.move(0, 1)
             for sprite in self.obstacle_sprites:
                 if sprite.rect.colliderect(check_rect):
                     self.on_ground = True
@@ -110,7 +104,8 @@ class Player(pygame.sprite.Sprite):
             color = 'red' if self.m.stamina < 100 else 'yellow' if self.m.stamina < 200 else 'green'
             pygame.draw.rect(self.display_surface, color, bar_rect)
 
-    def update(self):
+    # Thêm *args để khớp với lời gọi từ level.py
+    def update(self, *args):
         self.m.check_dash_status()
         self.m.input(pygame.key.get_pressed())
         
