@@ -13,17 +13,22 @@ class Item(pygame.sprite.Sprite):
         self.target = None
         self.base_y = pos[1]
 
-        if self.item_type in ['coin', 'star']:
-            f_w, f_h = (80, 80) if self.item_type == 'coin' else (50, 49)
-            t_w, t_h = (24, 24) if self.item_type == 'coin' else (28, 28)
-            sheet_w = surface.get_width()
-            if sheet_w >= f_w:
-                for x in range(0, sheet_w, f_w):
-                    frame_surf = pygame.Surface((f_w, f_h), pygame.SRCALPHA)
-                    frame_surf.blit(surface, (0, 0), pygame.Rect(x, 0, f_w, f_h))
-                    self.frames.append(pygame.transform.scale(frame_surf, (t_w, t_h)))
-            else: self.frames.append(pygame.transform.scale(surface, (t_w, t_h)))
-        else: self.frames.append(surface)
+        if surface:
+            if self.item_type in ['coin', 'star']:
+                f_w, f_h = (80, 80) if self.item_type == 'coin' else (50, 49)
+                t_w, t_h = (24, 24) if self.item_type == 'coin' else (28, 28)
+                sheet_w = surface.get_width()
+                if sheet_w >= f_w:
+                    for x in range(0, sheet_w, f_w):
+                        frame_surf = pygame.Surface((f_w, f_h), pygame.SRCALPHA)
+                        frame_surf.blit(surface, (0, 0), pygame.Rect(x, 0, f_w, f_h))
+                        self.frames.append(pygame.transform.scale(frame_surf, (t_w, t_h)))
+                else: self.frames.append(pygame.transform.scale(surface, (t_w, t_h)))
+            else: self.frames.append(surface)
+        else:
+            temp_surf = pygame.Surface((size, size))
+            temp_surf.fill('yellow')
+            self.frames.append(temp_surf)
 
         self.image = self.frames[self.frame_index]
         self.rect = self.image.get_rect(center=pos)
@@ -58,12 +63,17 @@ class Item01(pygame.sprite.Sprite):
         super().__init__()
         self.frames = []
         f_w, f_h = 97, 92
-        if surface and surface.get_width() >= f_w:
-            for i in range(surface.get_width() // f_w):
-                frame_surf = pygame.Surface((f_w, f_h), pygame.SRCALPHA)
-                frame_surf.blit(surface, (0, 0), pygame.Rect(i * f_w, 0, f_w, f_h))
-                self.frames.append(pygame.transform.scale(frame_surf, (size, size)))
-        if not self.frames: self.frames.append(pygame.transform.scale(surface, (size, size)))
+        if surface:
+            if surface.get_width() >= f_w:
+                for i in range(surface.get_width() // f_w):
+                    frame_surf = pygame.Surface((f_w, f_h), pygame.SRCALPHA)
+                    frame_surf.blit(surface, (0, 0), pygame.Rect(i * f_w, 0, f_w, f_h))
+                    self.frames.append(pygame.transform.scale(frame_surf, (size, size)))
+            else: self.frames.append(pygame.transform.scale(surface, (size, size)))
+        else:
+            temp_surf = pygame.Surface((size, size))
+            temp_surf.fill('green')
+            self.frames.append(temp_surf)
 
         self.frame_index = 0
         self.animation_speed = 0.15
@@ -92,38 +102,51 @@ class Item01(pygame.sprite.Sprite):
         if not any(s.rect.colliderect(l_check) for s in self.collision_sprites): self.direction *= -1
 
 class SurpriseBlock(pygame.sprite.Sprite):
-    def __init__(self, pos, size, surface, item_surf, popped_surf):
+    def __init__(self, pos, size, surf_normal, surf_popped, item_type='trap', surfaces=None):
         super().__init__()
-        self.image = surface if surface else pygame.Surface((size, size))
+        self.image = surf_normal if surf_normal else pygame.Surface((size, size))
+        self.surf_popped = surf_popped if surf_popped else pygame.Surface((size, size))
         self.rect = self.image.get_rect(topleft=pos)
-        self.item_surf = item_surf
-        self.popped_image = popped_surf
-        self.is_empty = False
+        self.is_popped = False
+        self.item_type = item_type
+        self.surfaces = surfaces
 
-    def spawn_trap(self, trap_group, visible_group, collision_group):
-        if not self.is_empty:
-            trap = Item01((self.rect.x, self.rect.y - TILE_SIZE), TILE_SIZE, self.item_surf, collision_group)
-            trap_group.add(trap); visible_group.add(trap)
-            self.is_empty = True
-            self.image = self.popped_image
+    def spawn_trap(self, trap_group, visible_group, collision_group, item_group=None):
+        if not self.is_popped:
+            self.is_popped = True
+            self.image = self.surf_popped
+            spawn_pos = (self.rect.x, self.rect.y - self.rect.height)
+            
+            if self.item_type == 'item01':
+                img = self.surfaces.get('Item01')
+                item = Item01(spawn_pos, self.rect.width, img, collision_group)
+                if item_group is not None: item_group.add(item)
+                visible_group.add(item)
+            else:
+                img = self.surfaces.get('Item02')
+                item = Item02(spawn_pos, self.rect.width, img)
+                if item_group is not None: item_group.add(item)
+                visible_group.add(item)
 
 class Item02(pygame.sprite.Sprite):
     def __init__(self, pos, size, surface):
         super().__init__()
-        self.image = pygame.transform.scale(surface, (size, size))
+        if surface:
+            self.image = pygame.transform.scale(surface, (size, size))
+        else:
+            self.image = pygame.Surface((size, size))
+            self.image.fill('pink')
         self.rect = self.image.get_rect(topleft = pos)
 
     def update(self, *args):
         pass
 
 class HiddenBlock(pygame.sprite.Sprite):
-    def __init__(self, pos, size, surface_popped, item_type=None):
+    def __init__(self, pos, size, surface_popped):
         super().__init__()
         self.image = pygame.Surface((size, size), pygame.SRCALPHA)
         self.rect = self.image.get_rect(topleft=pos)
-        
-        self.surface_popped = surface_popped
-        self.item_type = item_type
+        self.surface_popped = surface_popped if surface_popped else pygame.Surface((size, size))
         self.is_revealed = False
 
     def reveal(self, collision_group):

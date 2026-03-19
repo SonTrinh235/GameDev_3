@@ -18,8 +18,7 @@ class CameraGroup(pygame.sprite.Group):
             self.offset.y = self.map_height - SCREEN_HEIGHT
         else:
             self.offset.y = player.rect.centery - (SCREEN_HEIGHT * 2 // 3)
-            if self.offset.y < 0: 
-                self.offset.y = 0
+            if self.offset.y < 0: self.offset.y = 0
             if self.offset.y > self.map_height - SCREEN_HEIGHT:
                 self.offset.y = self.map_height - SCREEN_HEIGHT
 
@@ -65,9 +64,9 @@ class Level:
                 elif cell == 'P':
                     p_surfs = {
                         'player_default': self.surfaces['player_default'],
-                        'player_jump':    self.surfaces['player_jump'],
-                        'player_die':     self.surfaces['player_die'],
-                        'player_dash':    self.surfaces['player_dash']
+                        'player_jump': self.surfaces['player_jump'],
+                        'player_die': self.surfaces['player_die'],
+                        'player_dash': self.surfaces['player_dash']
                     }
                     self.player = Player((x, y), [self.visible_sprites], self.collision_sprites, p_surfs)
                 elif cell == 'C':
@@ -98,27 +97,24 @@ class Level:
                     surf = self.surfaces.get('crumble', self.surfaces.get('tile'))
                     crumble = CrumblingPlatform((x, y), TILE_SIZE, surf)
                     self.crumble_sprites.add(crumble); self.visible_sprites.add(crumble); self.collision_sprites.add(crumble)
-                elif cell == 'Q':
-                    n_surf = self.surfaces.get('q_normal')
-                    p_surf = self.surfaces.get('q_popped')
-                    i_surf = self.surfaces.get('Item01')
-                    q_block = SurpriseBlock((x, y), TILE_SIZE, n_surf, i_surf, p_surf)
-                    self.surprise_blocks.add(q_block); self.visible_sprites.add(q_block); self.collision_sprites.add(q_block)
+                elif cell in ['Q', 'W']:
+                    item_type = 'trap' if cell == 'Q' else 'item01'
+                    q_normal = self.surfaces.get('q_normal')
+                    q_popped = self.surfaces.get('q_popped')
+                    block = SurpriseBlock((x, y), TILE_SIZE, q_normal, q_popped, item_type, self.surfaces)
+                    self.surprise_blocks.add(block); self.visible_sprites.add(block); self.collision_sprites.add(block)
                 elif cell == 'M':
                     m_surf = self.surfaces.get('Item02')
                     mushroom = Item02((x, y), TILE_SIZE, m_surf)
-                    self.item_sprites.add(mushroom)
-                    self.visible_sprites.add(mushroom)
+                    self.item_sprites.add(mushroom); self.visible_sprites.add(mushroom)
                 elif cell == '1':
                     e_surf = self.surfaces.get('Enemy01')
                     enemy = Enemy01((x, y), TILE_SIZE, e_surf, self.collision_sprites)
-                    self.enemy_sprites.add(enemy)
-                    self.visible_sprites.add(enemy)
+                    self.enemy_sprites.add(enemy); self.visible_sprites.add(enemy)
                 elif cell == 'H':
                     h_surf = self.surfaces.get('q_popped')
                     h_block = HiddenBlock((x, y), TILE_SIZE, h_surf)
-                    self.hidden_blocks.add(h_block)
-                    self.visible_sprites.add(h_block)
+                    self.hidden_blocks.add(h_block); self.visible_sprites.add(h_block)
 
     def reset(self):
         self.visible_sprites.empty()
@@ -132,9 +128,9 @@ class Level:
         self.crumble_sprites.empty()
         self.surprise_blocks.empty()
         self.trap_sprites.empty()
+        self.hidden_blocks.empty()
         self.has_key = False
         self.setup_level()
-        self.hidden_blocks.empty()
 
     def interaction(self):
         if self.player.is_dead:
@@ -147,14 +143,18 @@ class Level:
                 head_rect = self.player.rect.move(0, -2)
                 if h_block.rect.colliderect(head_rect) and self.player.m.direction.y < 0:
                     h_block.reveal(self.collision_sprites)
+                    self.player.rect.top = h_block.rect.bottom
                     self.player.m.direction.y = 0
+                    self.player.remainder_y = 0
 
         for block in self.surprise_blocks:
-            head_rect = self.player.rect.move(0, -5).inflate(20, 0)
-            if block.rect.colliderect(head_rect):
-                block.spawn_trap(self.trap_sprites, self.visible_sprites, self.collision_sprites)
-                if self.player.m.direction.y < 0:
+            if not block.is_popped:
+                head_rect = pygame.Rect(self.player.rect.left + 5, self.player.rect.top - 5, self.player.rect.width - 10, 10)
+                if block.rect.colliderect(head_rect) and self.player.m.direction.y <= 0:
+                    block.spawn_trap(self.trap_sprites, self.visible_sprites, self.collision_sprites, self.item_sprites)
+                    self.player.rect.top = block.rect.bottom
                     self.player.m.direction.y = 0
+                    self.player.remainder_y = 0
 
         for death_sprite in list(self.spike_sprites) + list(self.trap_sprites):
             if death_sprite.rect.colliderect(self.player.rect):
@@ -175,12 +175,14 @@ class Level:
             if isinstance(item, Item02):
                 if hasattr(self.player, 'grow'): self.player.grow()
                 item.kill()
+            elif isinstance(item, Item01):
+                self.player.die()
+                return
 
         if getattr(self.player, 'is_big', False):
             if self.player.on_ground or self.player.m.direction.y > 0:
                 foot_rect = self.player.rect.inflate(15, 0)
                 foot_rect.bottom = self.player.rect.bottom + 10
-                
                 targets = list(self.collision_sprites) + list(self.surprise_blocks) + list(self.spike_sprites)
                 for sprite in targets:
                     if sprite.rect.colliderect(foot_rect):
@@ -194,12 +196,10 @@ class Level:
                pygame.sprite.spritecollide(enemy, self.spike_sprites, False):
                 enemy.kill()
                 continue
-
             for block in self.surprise_blocks:
                 if block.rect.colliderect(enemy.rect.move(0, -2)) and block.rect.bottom <= enemy.rect.top + 5:
                     enemy.kill()
                     break
-
             if enemy.rect.colliderect(self.player.rect):
                 if self.player.m.direction.y > 0 and self.player.rect.bottom <= enemy.rect.bottom + 10:
                     enemy.kill()
