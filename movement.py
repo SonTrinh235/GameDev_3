@@ -27,7 +27,6 @@ class Movement:
     def input(self, keys):
         current_time = pygame.time.get_ticks()
 
-        # 1. KIỂM TRA PHÍM DASH CÓ KHÓA (LOCK)
         if keys[K_DASH]:
             if not self.dash_locked and self.can_dash and not self.has_dashed:
                 self.start_dash(keys)
@@ -35,7 +34,6 @@ class Movement:
         else:
             self.dash_locked = False
 
-        # 2. DI CHUYỂN NGANG
         if not self.is_dashing:
             if current_time - self.wall_jump_timer > self.wall_jump_duration:
                 if not self.is_grabbing or self.p.on_ground:
@@ -60,7 +58,6 @@ class Movement:
                         else:
                             self.direction.x = pygame.math.lerp(self.direction.x, 0, 0.2)
 
-        # 3. NHẢY & SUPER JUMP
         if keys[K_JUMP]:
             if not self.jump_locked:
                 if self.is_dashing:
@@ -115,12 +112,10 @@ class Movement:
                         self.direction.y *= 0.5
                 self.jump_locked = False
 
-        # 4. BÁM TƯỜNG
         if not self.is_dashing:
             can_grab = current_time - self.wall_jump_timer > 100 
             if keys[K_GRAB] and self.p.on_wall and not self.p.on_ground and self.stamina > 0 and can_grab:
                 self.is_grabbing = True
-                
                 if current_time - self.dash_timer > 1000:
                     self.has_dashed = False 
                 
@@ -134,28 +129,28 @@ class Movement:
                 else:
                     self.direction.y = 0
                     self.stamina -= 0.3
+                
+                if not self.p.on_wall:
+                    self.is_grabbing = False
+                    self.direction.y = 0
             else:
                 self.is_grabbing = False
         else:
             self.is_grabbing = False
 
-    # def apply_gravity(self):
-    #     if self.is_grabbing: return 
-        
-    #     self.direction.y += GRAVITY
-    #     if self.direction.y > 12: self.direction.y = 12
-
-    #     if self.p.on_ground:
-    #         self.stamina = self.stamina_max
-    #         self.has_dashed = False
     def apply_gravity(self):
         if self.is_grabbing: return 
-        self.direction.y += GRAVITY
-        if self.direction.y > 12: self.direction.y = 12
+        gravity_multiplier = 1.2 if getattr(self.p, 'is_big', False) else 1.0
+        self.direction.y += GRAVITY * gravity_multiplier
+        
+        max_fall_speed = 16 if getattr(self.p, 'is_big', False) else 12
+        if self.direction.y > max_fall_speed: 
+            self.direction.y = max_fall_speed
+            
         if self.p.on_ground:
             self.stamina = self.stamina_max
             self.has_dashed = False
-            self.can_dash = True 
+            self.can_dash = True
 
     def start_dash(self, keys):
         self.is_grabbing = False

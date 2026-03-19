@@ -26,12 +26,17 @@ class Game:
                 return surf
 
         self.surfaces = {
+            'player_default': get_surf('Assets/graphics/Default.png', PLAYER_COLOR),
+            'player_jump': get_surf('Assets/graphics/Jump.png', 'blue'),
+            'player_die': get_surf('Assets/graphics/Die.png', 'red'),
+            'player_dash':    get_surf('Assets/graphics/Dash.png', 'purple'),
             'tile': get_surf('Assets/graphics/Brick.png', 'grey'),
             'bg_tile': get_surf('Assets/graphics/bg_tile.png', (50, 50, 50)),
             'brick':get_surf('Assets/graphics/Brick.png', 'brown'),
             'coin': get_surf('Assets/graphics/Coin.png', 'yellow'),
             'star': get_surf('Assets/graphics/Star.png', 'gold'),
             'enemy': get_surf('Assets/graphics/Signus.png', 'red'),
+            'Enemy01': get_surf('Assets/graphics/Enemy01.png', 'white'),
             'spike': get_surf('Assets/graphics/Spike.png', 'purple'),
             'bounce': get_surf('Assets/graphics/Bounce.png', 'orange'),
             'goal': get_surf('Assets/graphics/goal.png', 'green'),

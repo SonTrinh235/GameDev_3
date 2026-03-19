@@ -1,13 +1,13 @@
 import pygame
 
 # Screen
-SCREEN_WIDTH = 2000
-SCREEN_HEIGHT = 1200
+SCREEN_WIDTH = 1280
+SCREEN_HEIGHT = 720
 TILE_SIZE = 32
 FPS = 60
 
 # Colors
-BG_COLOR = '#060b14'
+BG_COLOR = '#B8E1FF'
 PLAYER_COLOR = '#ff4d4d'
 
 # Physics
@@ -31,53 +31,49 @@ K_JUMP = pygame.K_x
 K_GRAB = pygame.K_SPACE
 
 LEVEL_1 = [
-    'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXGGGGGGGX',
-    'X X',
-    'X                                                                         XXXXX                                                                      X',
-    'X                                                         S               XXXXX                                                                      X',
+    'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
+    'X                                                                                                                                                    X',
+    'X                                                                                                                                                    X',
+    'X                                                                           S                                                                        X',
     'X                                                                         XXXXX                                                                      X',
     'X                                                                         XXXXX                                                       XXXX           X',
     'X                                                                                                                                     XXXX           X',
     'X                                                                                                                                     XXX            X',
-    'X                                                                                                                                     XXX            X',
+    'X                                   M                                                                                                 XXX     G      X',
     'X                               XXXXXXXXX                                                    XXXXXXXX                            XXXXXXXX            X',
     'X                               XXXXXXXXX                                                    XXXXXXXX                                   X            X',
     'X                               XXXXXXXXX                                                        XXXX            X                                   X',
-    'X                               XXXXXXXXX                                                        XXXX            XXXX                                X',
+    'X                  M            XXXXXXXXX                                                        XXXX            XXXX                                X',
     'X               XXXXXXX         XXXXXXXXX            C                                             XX            XXXX                                X',
-    'X P             XXXXXXX         XXXXXXXXX          XXXXX                 ^^^^^^                     X            XXXX          ^^^^^          S      X',
-    'XXXXXXXXX       XXXXXXX         XXXXXXXXX^^^^^^^               J         XXXXXX                                    XX          XXXXX                 X',
-    'XXXXXXXXX       XXXXXXX         XXXXXXXXXXXXXXXX^^^^^^^       XXX        XXXXX                                                 XXXXX                 X',
-    'XXXXXXXXX       XXXXXXX^^^^^^^^^XXXXXXXXXXXXXXXXXXXXXXX       XXX         XXXX                                          ^^^^^^^XXXXX^^^^^^^^^^^^^^^^^X',
-    'XXXXXXXXX^^^^^^^XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX^^^^^^^^XXXXXXXXX                                      XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
+    'X  P            XXXXXXX         XXXXXXXXX          XXXXX                 ^^^^^^                     X            XXXX          ^^^^^          S      X',
+    'XFFXXFFFF                       XXXXXXXXX^^^^^^^               J         XXXXXX                                    XX          XXXXX                 X',
+    'X                  C            XXXXXXXXXXXXXXXX^^^^^^^       XXX        XXXXX                                                 XXXXX                 X',
+    'X               XXXXXXX^^^^^^^^^XXXXXXXXXXXXXXXXXXXXXXX       XXX         XXXX                                          ^^^^^^^XXXXX^^^^^^^^^^^^^^^^^X',
+    'X^^^^^^^^^^^^^^^XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX^^^^^^^^XXXXXXXXX                                      XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
     'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX                              XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
 ]
 
 LEVEL_0 = [
-    'X                                                                                                                                                    X',    
-    'X                                                                                                                                                    X',    
-    'X                                                                                                                                                    X',      
-    'X                                                                                                                                                    X',  
     'X                                                                                                                                                    X',
     'X                                                                                                                                                    X',
     'XX                                         S                                                                                                         X',
-    'XXXX                                      XXXX                                                                                                       X',
-    'XXXXXX                                    XXXX                                                                                                       X',
-    'X                                         XXXX                                         XXXX                                                          X',
-    'X P                           C           XXXX                                         XXXX                                                          X',
-    'XXXXXXXXX                    XXXX                                                      XXXX                                                          X',
-    'XXXXXXXXX                    XXXX                                         XXXX         XXXX                                                          X',
-    'XXXX                         XXXX                                         XXXX         XXXX                                                          X',
+    'XXXX                                      FFFF                                                                                                       X',
+    'XXXXXX                                    FFFF                                                                                                       X',
+    'X                                                                                      XXXX                                                          X',
+    'X P                           C                                                        XXXX                                                          X',
+    'XFFFFFFFF                                                                              XXXX                                                          X',
+    'XFFFFFFFF                                                                 XXXX         XXXX                                                          X',
+    'XFFF                         FFFF                                         XXXX         XXXX                                                          X',
     'X                                           E                             XXXX         XXXX                               C                          X',
-    'X                                       XXXXXXXX           C              XXXX         XXXX                             XXXXX                        X',
-    'X                                         XXXX           XXXXX            XXXX         XXXX                                                          X',
+    'X                                       FFXXXXFF           C              XXXX         XXXX                             XXXXX                        X',
+    'X                                         XXXX           FFFFF            XXXX         XXXX                                                          X',
     'X                                         XXXX                            XXXX         XXXX                                            G             X',
     'X                                         XXXX                            XXXX         XXXX                                          XXXXX           X',
     'X                                         XXXX                            XXXX         XXXX              E                                           X',
     'X^^^^      XXQXX       FFFFF              XXXX                            XXXX         XXXX           XXXXXXX                                        X',
-    'XXXX^                                     XXXX                            XXXX         XXXX           XXXXXXX                                        X',
-    'XXXX^                                     XXXX             S              XXXX    S    XXXX      S    XXXXXXX       S        S                       X',
-    'XXXXXXXXXXXXXXXXXX^^^^^^^^^^^^^^^^^^^^^^^XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
+    'XXXXX                                     XXXX                            XXXX         XXXX           XXXXXXX                                        X',
+    'XXXX        1                             XXXX             S              XXXX    S    XXXX      S    XXXXXXX       S        S                       X',
+    'XXXXXXXXXXXXXXXXXX                       XXXXXXFFFFFFFFFFFFFFFFFFFFFFFFFXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
 ]
 
 LEVEL_2 = [
@@ -99,7 +95,7 @@ LEVEL_2 = [
     'P                XXXXX                                                                                                                    XXXXX       ',
     'XXXXX                           XXXXX                 XXXXX                        XXXXX                     XXXXX                                    ',
     'XXXXX                           XXXXX                 XXXXX                        XXXXX                     XXXXX                                    ',
-    'XXXXX      S             S      XXXXX      S          XXXXX           S            XXXXX          S          XXXXX             S                      ',
+    'XXXXX    1       1      1      1XXXXX      S          XXXXX           S            XXXXX          S          XXXXX             S                      ',
     'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
 ]
 
