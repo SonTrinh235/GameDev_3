@@ -30,6 +30,7 @@ K_DASH = pygame.K_z
 K_JUMP = pygame.K_x
 K_GRAB = pygame.K_SPACE
 
+# Test
 LEVEL_0 = [
     'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
     'X                                                                                                                                                    X',
@@ -45,7 +46,7 @@ LEVEL_0 = [
     'X                               XXXXXXXXX                                                        XXXX            X                                   X',
     'X    Q    HWH      M            XXXXXXXXX                                                        XXXX            XXXX                                X',
     'X               XXXXXXX         XXXXXXXXX            C                                             XX            XXXX                                X',
-    'X  P            XXXXXXX         XXXXXXXXX          XXXXX                 ^^^^^^                     X            XXXX          ^^^^^          S      X',
+    'X  P     M   1  XXXXXXX         XXXXXXXXX          XXXXX                 ^^^^^^                     X            XXXX          ^^^^^          S      X',
     'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX^^^^^^^               J         XXXXXX                                    XX          XXXXX                 X',
     'X                  C            XXXXXXXXXXXXXXXX^^^^^^^       XXX        XXXXX                                                 XXXXX                 X',
     'X               XXXXXXX^^^^^^^^^XXXXXXXXXXXXXXXXXXXXXXX       XXX         XXXX                                          ^^^^^^^XXXXX^^^^^^^^^^^^^^^^^X',

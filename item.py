@@ -157,3 +157,16 @@ class HiddenBlock(pygame.sprite.Sprite):
 
     def update(self, *args):
         pass
+
+class TrapDoor(pygame.sprite.Sprite):
+    def __init__(self, pos, size, surface):
+        super().__init__()
+        if surface:
+            self.image = pygame.transform.scale(surface, (size, size))
+        else:
+            self.image = pygame.Surface((size, size))
+            self.image.fill('gray')
+        self.rect = self.image.get_rect(topleft=pos)
+
+    def update(self, *args):
+        pass
