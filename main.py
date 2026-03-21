@@ -108,7 +108,6 @@ class Game:
             elif self.status == 'playing':
                 self.screen.fill(BG_COLOR)
                 self.level.run()
-                # Draw pause button
                 self.draw_pause_button()
             elif self.status == 'paused':
                 self.screen.fill(BG_COLOR)
@@ -116,7 +115,7 @@ class Game:
                 self.pause_menu.draw()
 
             pygame.display.update()
-            self.clock.tick(FPS)
+            self.clock.tick(self.menu.game_speed)
     
     def draw_pause_button(self):
         """Draw pause button during gameplay"""
@@ -133,7 +132,17 @@ class Game:
     
     def start_level(self):
         """Start a specific level"""
+        # Update key bindings from menu
+        self.apply_key_bindings()
         self.level = Level(LEVEL_DATA[self.current_level_index], self.surfaces, self.next_level)
+    
+    def apply_key_bindings(self):
+        """Apply custom key bindings from menu to settings"""
+        import settings as settings_module
+        settings_module.K_JUMP = self.menu.key_bindings['jump']
+        settings_module.K_DASH = self.menu.key_bindings['dash']
+        settings_module.K_GRAB = self.menu.key_bindings['grab']
+        print(f"[GAME] Key bindings applied: Jump={pygame.key.name(settings_module.K_JUMP)}, Dash={pygame.key.name(settings_module.K_DASH)}, Grab={pygame.key.name(settings_module.K_GRAB)}")
 
 if __name__ == '__main__':
     game = Game()

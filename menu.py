@@ -53,6 +53,23 @@ class Menu:
         self.font_subtitle = pygame.font.SysFont('Arial', 32, italic=True)
         self.font_small = pygame.font.SysFont('Arial', 20)
         
+        # Load player images
+        self.player_images = {}
+        try:
+            self.player_images['default'] = pygame.image.load('Assets/graphics/Default.png').convert_alpha()
+            self.player_images['jump'] = pygame.image.load('Assets/graphics/Jump.png').convert_alpha()
+            self.player_images['dash'] = pygame.image.load('Assets/graphics/Dash.png').convert_alpha()
+            self.player_images['die'] = pygame.image.load('Assets/graphics/Die.png').convert_alpha()
+        except Exception as e:
+            print(f"[Warning] Cannot load player images: {e}")
+            # Create placeholder surfaces
+            for key in ['default', 'jump', 'dash', 'die']:
+                self.player_images[key] = pygame.Surface((64, 64))
+                self.player_images[key].fill((200, 100, 100))
+        
+        # Track which button is currently hovered
+        self.hovered_button_index = None
+        
         button_width = 250
         button_height = 60
         button_x = 100
@@ -93,13 +110,31 @@ class Menu:
         # State
         self.current_screen = 'main' 
         self.selected_level = 0
+        
+        # Settings
+        self.sound_enabled = True
+        self.fullscreen_enabled = False
+        self.game_speed = 60
+        
+        # Key Bindings
+        self.key_bindings = {
+            'jump': pygame.K_x,
+            'dash': pygame.K_z,
+            'grab': pygame.K_SPACE
+        }
+        self.waiting_for_key = None  # Track which key is being set
 
     def handle_event(self, event):
         """Handle events"""
         if event.type == pygame.MOUSEMOTION:
             pos = pygame.mouse.get_pos()
-            for button in self.buttons:
+            for idx, button in enumerate(self.buttons):
                 button.update(pos)
+                if button.is_hovered:
+                    self.hovered_button_index = idx
+                else:
+                    if self.hovered_button_index == idx:
+                        self.hovered_button_index = None
                 
         elif event.type == pygame.MOUSEBUTTONDOWN:
             pos = pygame.mouse.get_pos()
@@ -117,10 +152,22 @@ class Menu:
             elif self.current_screen == 'level_select':
                 return self.handle_level_select(pos)
                 
-            elif self.current_screen in ['instructions', 'settings']:
+            elif self.current_screen == 'settings':
+                self.handle_settings_click(pos)
+                
+            elif self.current_screen == 'instructions':
                 self.current_screen = 'main'
                 
         elif event.type == pygame.KEYDOWN:
+            # Handle key binding customization
+            if self.waiting_for_key:
+                if event.key != pygame.K_ESCAPE:
+                    self.key_bindings[self.waiting_for_key] = event.key
+                    key_name = pygame.key.name(event.key)
+                    print(f"[SETTINGS] {self.waiting_for_key.upper()} set to: {key_name}")
+                self.waiting_for_key = None
+                return
+            
             if event.key == pygame.K_ESCAPE:
                 if self.current_screen != 'main':
                     self.current_screen = 'main'
@@ -154,6 +201,69 @@ class Menu:
             
         return None
 
+    def handle_settings_click(self, pos):
+        """Handle settings screen clicks"""
+        # Check back button
+        back_rect = pygame.Rect(50, 50, 100, 50)
+        if back_rect.collidepoint(pos):
+            self.current_screen = 'main'
+            return
+        
+        right_x = 500
+        toggle_width = 80
+        toggle_height = 40
+        
+        # Row 1: Sound toggle
+        sound_rect = pygame.Rect(right_x, 150, toggle_width, toggle_height)
+        if sound_rect.collidepoint(pos):
+            self.sound_enabled = not self.sound_enabled
+            status = "ON" if self.sound_enabled else "OFF"
+            print(f"[SETTINGS] Sound: {status}")
+        
+        # Row 2: Fullscreen toggle
+        fullscreen_rect = pygame.Rect(right_x, 220, toggle_width, toggle_height)
+        if fullscreen_rect.collidepoint(pos):
+            self.fullscreen_enabled = not self.fullscreen_enabled
+            self.apply_fullscreen()
+        
+        # Row 3: Game speed buttons
+        speed_minus_rect = pygame.Rect(right_x, 290, 30, toggle_height)
+        speed_plus_rect = pygame.Rect(right_x + 70, 290, 30, toggle_height)
+        
+        if speed_minus_rect.collidepoint(pos):
+            self.game_speed = max(30, self.game_speed - 10)
+            print(f"[SETTINGS] Game Speed: {self.game_speed} FPS")
+        elif speed_plus_rect.collidepoint(pos):
+            self.game_speed = min(120, self.game_speed + 10)
+            print(f"[SETTINGS] Game Speed: {self.game_speed} FPS")
+        
+        # Key binding buttons
+        key_button_width = 80
+        key_button_height = 35
+        key_gap = 50
+        
+        key_bindings_keys = ['jump', 'dash', 'grab']
+        
+        for idx, key_name in enumerate(key_bindings_keys):
+            key_y = 370 + idx * key_gap
+            key_rect = pygame.Rect(right_x, key_y, key_button_width, key_button_height)
+            if key_rect.collidepoint(pos):
+                self.waiting_for_key = key_name
+                print(f"[SETTINGS] Press a key for {key_name.upper()}...")
+    
+    def apply_fullscreen(self):
+        """Apply fullscreen setting"""
+        try:
+            if self.fullscreen_enabled:
+                self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.FULLSCREEN)
+                print("[SETTINGS] Fullscreen: ON")
+            else:
+                self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+                print("[SETTINGS] Fullscreen: OFF")
+        except Exception as e:
+            print(f"[ERROR] Cannot apply fullscreen: {e}")
+            self.fullscreen_enabled = not self.fullscreen_enabled
+
     def draw_main_menu(self):
         """Draw main menu"""
         self.screen.fill(self.bg_color)
@@ -167,13 +277,22 @@ class Menu:
             1, 3
         )
         
-        game_title = self.font_title.render('GAME', True, self.accent_color)
-        game_title_rect = game_title.get_rect(center=(right_x + SCREEN_WIDTH // 4, SCREEN_HEIGHT // 3))
+        right_panel_x = right_x + (SCREEN_WIDTH // 2) // 2
+        
+        game_title = self.font_title.render('GAMEDEV_3', True, self.accent_color)
+        game_title_rect = game_title.get_rect(center=(right_panel_x, 80))
         self.screen.blit(game_title, game_title_rect)
         
-        subtitle = self.font_subtitle.render('Adventure Quest', True, self.text_color)
-        subtitle_rect = subtitle.get_rect(center=(right_x + SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2))
-        self.screen.blit(subtitle, subtitle_rect)
+        if self.hovered_button_index is not None:
+            image_keys = ['default', 'jump', 'dash', 'die']
+            image_key = image_keys[self.hovered_button_index]
+        else:
+            image_key = 'default'
+        
+        player_img = self.player_images[image_key]
+        scaled_img = pygame.transform.scale(player_img, (200, 200))
+        player_rect = scaled_img.get_rect(center=(right_panel_x, 350))
+        self.screen.blit(scaled_img, player_rect)
         
         for button in self.buttons:
             button.draw(self.screen)
@@ -265,33 +384,102 @@ class Menu:
         title_rect = title.get_rect(center=(SCREEN_WIDTH // 2, 50))
         self.screen.blit(title, title_rect)
         
-        # Settings options
-        settings = [
-            "Sound: On",
-            "Difficulty: Normal",
-            "Fullscreen: Off",
-            "Game Speed: 60 FPS",
-            "",
-            "Coming Soon:",
-            "  - Sound customization",
-            "  - Difficulty settings",
-            "  - Key bindings",
-        ]
+        # Back button
+        back_button = Button(50, 50, 100, 50, 'BACK', 
+                           self.button_color, self.button_hover, self.text_color)
+        back_button.update(pygame.mouse.get_pos())
+        back_button.draw(self.screen)
         
+        # Layout settings
+        left_x = 150
+        right_x = 500
+        toggle_width = 80
+        toggle_height = 40
+        
+        # ===== Row 1: Sound =====
         y = 150
-        for setting in settings:
-            if setting == "":
-                y += 30
-                continue
-            is_header = setting.startswith("Coming")
-            font = self.font_subtitle if is_header else self.font_small
-            text = font.render(setting, True, self.text_color)
-            text_rect = text.get_rect(x=150, y=y)
-            self.screen.blit(text, text_rect)
-            y += 50
+        label_text = self.font_small.render('Sound:', True, self.text_color)
+        self.screen.blit(label_text, (left_x, y + 5))
         
-        hint = self.font_small.render('Click to go back to menu', True, (150, 150, 150))
-        hint_rect = hint.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT - 50))
+        toggle_rect = pygame.Rect(right_x, y, toggle_width, toggle_height)
+        toggle_color = (0, 180, 0) if self.sound_enabled else (180, 0, 0)
+        pygame.draw.rect(self.screen, toggle_color, toggle_rect, border_radius=5)
+        pygame.draw.rect(self.screen, (255, 255, 255), toggle_rect, 2, border_radius=5)
+        status_text = self.font_small.render('ON' if self.sound_enabled else 'OFF', True, (255, 255, 255))
+        status_rect = status_text.get_rect(center=toggle_rect.center)
+        self.screen.blit(status_text, status_rect)
+        
+        # ===== Row 2: Fullscreen =====
+        y += 70
+        label_text = self.font_small.render('Fullscreen:', True, self.text_color)
+        self.screen.blit(label_text, (left_x, y + 5))
+        
+        toggle_rect = pygame.Rect(right_x, y, toggle_width, toggle_height)
+        toggle_color = (0, 180, 0) if self.fullscreen_enabled else (180, 0, 0)
+        pygame.draw.rect(self.screen, toggle_color, toggle_rect, border_radius=5)
+        pygame.draw.rect(self.screen, (255, 255, 255), toggle_rect, 2, border_radius=5)
+        status_text = self.font_small.render('ON' if self.fullscreen_enabled else 'OFF', True, (255, 255, 255))
+        status_rect = status_text.get_rect(center=toggle_rect.center)
+        self.screen.blit(status_text, status_rect)
+        
+        # ===== Row 3: Game Speed =====
+        y += 70
+        label_text = self.font_small.render('Game Speed:', True, self.text_color)
+        self.screen.blit(label_text, (left_x, y + 5))
+        
+        speed_minus_rect = pygame.Rect(right_x, y, 30, toggle_height)
+        pygame.draw.rect(self.screen, (100, 100, 100), speed_minus_rect, border_radius=5)
+        pygame.draw.rect(self.screen, (255, 255, 255), speed_minus_rect, 2, border_radius=5)
+        minus_text = self.font_small.render('-', True, (255, 255, 255))
+        minus_rect = minus_text.get_rect(center=speed_minus_rect.center)
+        self.screen.blit(minus_text, minus_rect)
+        
+        speed_text = self.font_small.render(f'{self.game_speed}', True, self.accent_color)
+        speed_rect = speed_text.get_rect(center=(right_x + 50, y + 20))
+        self.screen.blit(speed_text, speed_rect)
+        
+        speed_plus_rect = pygame.Rect(right_x + 70, y, 30, toggle_height)
+        pygame.draw.rect(self.screen, (100, 100, 100), speed_plus_rect, border_radius=5)
+        pygame.draw.rect(self.screen, (255, 255, 255), speed_plus_rect, 2, border_radius=5)
+        plus_text = self.font_small.render('+', True, (255, 255, 255))
+        plus_rect = plus_text.get_rect(center=speed_plus_rect.center)
+        self.screen.blit(plus_text, plus_rect)
+        
+        # ===== Key Bindings =====
+        y += 80
+        key_label = self.font_small.render('Controls:', True, self.accent_color)
+        self.screen.blit(key_label, (left_x, y))
+        
+        key_button_width = 80
+        key_button_height = 35
+        key_gap = 50
+        
+        key_bindings_list = ['Jump', 'Dash', 'Grab']
+        key_bindings_keys = ['jump', 'dash', 'grab']
+        
+        for idx, (display_name, key_name) in enumerate(zip(key_bindings_list, key_bindings_keys)):
+            key_y = y + 40 + idx * key_gap
+            
+            label_text = self.font_small.render(f'{display_name}:', True, self.text_color)
+            self.screen.blit(label_text, (left_x, key_y + 2))
+            
+            key_rect = pygame.Rect(right_x, key_y, key_button_width, key_button_height)
+            is_waiting = self.waiting_for_key == key_name
+            button_color = (255, 100, 100) if is_waiting else (100, 100, 150)
+            
+            pygame.draw.rect(self.screen, button_color, key_rect, border_radius=5)
+            pygame.draw.rect(self.screen, (255, 255, 255), key_rect, 2, border_radius=5)
+            
+            current_key = pygame.key.name(self.key_bindings[key_name])
+            if is_waiting:
+                key_text = self.font_small.render('...', True, (255, 255, 255))
+            else:
+                key_text = self.font_small.render(current_key.upper(), True, (255, 255, 255))
+            key_text_rect = key_text.get_rect(center=key_rect.center)
+            self.screen.blit(key_text, key_text_rect)
+        
+        hint = self.font_small.render('ESC: Back | Click to change keys', True, (150, 150, 150))
+        hint_rect = hint.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT - 30))
         self.screen.blit(hint, hint_rect)
 
     def draw(self):

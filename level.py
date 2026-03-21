@@ -47,6 +47,8 @@ class Level:
         self.hidden_blocks = pygame.sprite.Group()
         
         self.has_key = False
+        self.death_count = 0
+        self.coins_collected = 0
         self.setup_level()
 
     def setup_level(self):
@@ -161,6 +163,8 @@ class Level:
                 if getattr(self.player, 'is_big', False):
                     death_sprite.kill()
                 else:
+                    if not self.player.is_dead:
+                        self.death_count += 1
                     self.player.die()
                     return
 
@@ -176,6 +180,8 @@ class Level:
                 if hasattr(self.player, 'grow'): self.player.grow()
                 item.kill()
             elif isinstance(item, Item01):
+                if not self.player.is_dead:
+                    self.death_count += 1
                 self.player.die()
                 return
 
@@ -206,6 +212,8 @@ class Level:
                     self.player.m.direction.y = JUMP_SPEED * 0.8
                     self.player.m.has_dashed = False 
                 else:
+                    if not self.player.is_dead:
+                        self.death_count += 1
                     self.player.die()
                     break 
 
@@ -224,6 +232,8 @@ class Level:
                     item.is_following = True
                     item.target = self.player
                 elif item.item_type in ['coin', 'star']:
+                    if item.item_type == 'coin':
+                        self.coins_collected += 1
                     item.kill()
 
         if self.has_key:
@@ -239,6 +249,8 @@ class Level:
             self.trigger_next_level()
 
         if self.player.rect.top > self.visible_sprites.map_height:
+            if not self.player.is_dead:
+                self.death_count += 1
             self.player.die()
 
     def run(self):
@@ -246,3 +258,31 @@ class Level:
         self.interaction()
         self.visible_sprites.custom_draw(self.player)
         self.player.draw_stamina(self.visible_sprites.offset)
+        self.draw_death_counter()
+        self.draw_coins_counter()
+    
+    def draw_death_counter(self):
+        """Draw the death counter on the screen"""
+        font = pygame.font.SysFont('Arial', 28, bold=True)
+        death_text = font.render(f'Deaths: {self.death_count}', True, (255, 50, 50))
+        death_rect = death_text.get_rect(topleft=(20, 20))
+        
+        # Draw background
+        bg_rect = death_rect.inflate(20, 20)
+        pygame.draw.rect(self.display_surface, (0, 0, 0), bg_rect, border_radius=8)
+        pygame.draw.rect(self.display_surface, (150, 50, 50), bg_rect, 2, border_radius=8)
+        
+        self.display_surface.blit(death_text, death_rect)
+    
+    def draw_coins_counter(self):
+        """Draw the coins counter on the screen"""
+        font = pygame.font.SysFont('Arial', 28, bold=True)
+        coins_text = font.render(f'Gold: {self.coins_collected}', True, (255, 215, 0))
+        coins_rect = coins_text.get_rect(topleft=(20, 70))
+        
+        # Draw background
+        bg_rect = coins_rect.inflate(20, 20)
+        pygame.draw.rect(self.display_surface, (0, 0, 0), bg_rect, border_radius=8)
+        pygame.draw.rect(self.display_surface, (150, 120, 0), bg_rect, 2, border_radius=8)
+        
+        self.display_surface.blit(coins_text, coins_rect)
