@@ -1,6 +1,7 @@
 import pygame, sys
 from settings import *
 from level import Level
+from menu import Menu, PauseMenu
 
 class Game:
     def __init__(self):
@@ -11,9 +12,12 @@ class Game:
         
         self.import_assets()
         
+        self.menu = Menu()
+        self.pause_menu = PauseMenu()
+        
         self.current_level_index = 0
-        self.level = Level(LEVEL_DATA[self.current_level_index], self.surfaces, self.next_level)
-        self.status = 'menu'
+        self.level = None
+        self.status = 'menu' 
 
     def import_assets(self):
         def get_surf(path, fallback_color):
@@ -67,40 +71,69 @@ class Game:
                     sys.exit()
                 
                 if self.status == 'menu':
-                    if event.type == pygame.KEYDOWN:
-                        if event.key == pygame.K_RETURN:
-                            self.current_level_index = 0
-                            self.restart_current_level()
-                            self.status = 'playing'
-                        if event.key == pygame.K_ESCAPE:
-                            pygame.quit()
-                            sys.exit()
+                    result = self.menu.handle_event(event)
+                    
+                    if result == 'quit':
+                        pygame.quit()
+                        sys.exit()
+                    elif isinstance(result, tuple) and result[0] == 'start_game':
+                        self.current_level_index = result[1]
+                        self.start_level()
+                        self.status = 'playing'
                 
                 elif self.status == 'playing':
                     if event.type == pygame.KEYDOWN:
                         if event.key == pygame.K_r:
                             self.restart_current_level()
+                        if event.key == pygame.K_p:
+                            self.status = 'paused'
+                        if event.key == pygame.K_ESCAPE:
+                            self.status = 'menu'
+                            self.menu.current_screen = 'main'
+                
+                elif self.status == 'paused':
+                    result = self.pause_menu.handle_event(event)
+                    
+                    if result == 'resume':
+                        self.status = 'playing'
+                    elif result == 'main_menu':
+                        self.status = 'menu'
+                        self.menu.current_screen = 'main'
+                    elif result == 'quit':
+                        pygame.quit()
+                        sys.exit()
 
-            self.screen.fill(BG_COLOR)
-            
             if self.status == 'menu':
-                self.draw_menu()
-            else:
+                self.menu.draw()
+            elif self.status == 'playing':
+                self.screen.fill(BG_COLOR)
                 self.level.run()
+                # Draw pause button
+                self.draw_pause_button()
+            elif self.status == 'paused':
+                self.screen.fill(BG_COLOR)
+                self.level.run()
+                self.pause_menu.draw()
 
             pygame.display.update()
             self.clock.tick(FPS)
+    
+    def draw_pause_button(self):
+        """Draw pause button during gameplay"""
+        font = pygame.font.SysFont('Arial', 24, bold=True)
+        pause_text = font.render('P: PAUSE', True, (255, 255, 255))
+        pause_rect = pause_text.get_rect(topright=(SCREEN_WIDTH - 20, 20))
+        
+        bg_rect = pause_rect.inflate(20, 20)
+        pygame.draw.rect(self.screen, (50, 100, 150), bg_rect, border_radius=8)
+        pygame.draw.rect(self.screen, (100, 150, 200), bg_rect, 2, border_radius=8)
+        
+        self.screen.blit(pause_text, pause_rect)
 
-    def draw_menu(self):
-        font = pygame.font.SysFont('Arial', 50)
-        title_surf = font.render('Game Development 3', True, 'gold')
-        start_surf = font.render('PRESS ENTER TO START', True, 'white')
-        
-        title_rect = title_surf.get_rect(center = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 50))
-        start_rect = start_surf.get_rect(center = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 50))
-        
-        self.screen.blit(title_surf, title_rect)
-        self.screen.blit(start_surf, start_rect)
+    
+    def start_level(self):
+        """Start a specific level"""
+        self.level = Level(LEVEL_DATA[self.current_level_index], self.surfaces, self.next_level)
 
 if __name__ == '__main__':
     game = Game()
