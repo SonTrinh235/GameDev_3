@@ -31,7 +31,7 @@ K_JUMP = pygame.K_x
 K_GRAB = pygame.K_SPACE
 
 # Test
-LEVEL_0 = [
+LEVEL_5 = [
     'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
     'X                                                                                                                                                    X',
     'X                                                                                                                                                    X',
@@ -52,6 +52,30 @@ LEVEL_0 = [
     'X               XXXXXXX^^^^^^^^^XXXXXXXXXXXXXXXXXXXXXXX       XXX         XXXX                                          ^^^^^^^XXXXX^^^^^^^^^^^^^^^^^X',
     'X^^^^^^^^^^^^^^^XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX^^^^^^^^XXXXXXXXX                                      XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
     'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX                              XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
+]
+
+LEVEL_0 = [
+    '                                                                                                                                                      ',
+    '                                                                                                                                                      ',
+    '                                                                                                                                                      ',
+    '                                                                                                                                                      ',
+    '                                                                                                                                                      ',
+    '                                                                                                                                                      ',
+    '                                                                                                                                                      ',
+    '                                                                                                                                          HH          ',
+    '                                                                                                                                                      ',   
+    '                                                                                                                                                      ',
+    '                                                                                                                           G        S                 ',
+    '                                                    C                                                                     XXX     XXXXX     XXX      X',
+    '                   Q                              XXXXX    XXXXX                                                                                     X',
+    '                                                                                    HH                                                               X',
+    '                                                                                                       C C                          C                X',
+    '           Q     XQXQX         HHHH        XQX                                                        XXQXX               XXX     XXXXX     XXX      X',
+    '                                                                              X    X HHHHHHHHHHX                HH                                   X',
+    '                                                                             XX    XX          X                                                     X',
+    '    P                      1                         1                      XXX    XX          X      1                                              X', 
+    'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX    XXXXXXXXXXXXXXXXXXXX    XXXXXXXXXXXXXXXXXXXX    XXXXXXXXXX  XXXXXXXXXXXXXXXXX  XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
+    'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX    XXXXXXXXXXXXXXXXXXXX    XXXXXXXXXXXXXXXXXXXX    XXXXXXXXXX  XXXXXXXXXXXXXXXXX  XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',  
 ]
 
 LEVEL_1 = [
@@ -139,11 +163,12 @@ LEVEL_4 = [
     '                             XXXX             XXXX                                           XXXX                             XXXXX                   ',
     '                             XXXX             XXXX            C                              XXXX                                                     ',
     '                                                            XXXXX                            XXXX                                           G         ',
-    'P            C               XXXX                                          E                 XXXX                 E                           XXXXX       ',
+    'P            C               XXXX                                          E                 XXXX                 E                           XXXXX   ',
     'XXXXX      XXXXX             XXXX             XXXX                      XXXXXXX              XXXX              XXXXXXX                                ',
     'XXXXX                        XXXX      S      XXXX                      XXXXXXX              XXXX              XXXXXXX                                ',
     'XXXXX    S       S           XXXX   XXXXXXX   XXXX   S         S        XXXXXXX       S      XXXX       S      XXXXXXX       S        S               ',
     'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
 ]
 
-LEVEL_DATA = [LEVEL_0, LEVEL_1, LEVEL_2, LEVEL_3, LEVEL_4]
+
+LEVEL_DATA = [LEVEL_0, LEVEL_1, LEVEL_2, LEVEL_3, LEVEL_4, LEVEL_5]
