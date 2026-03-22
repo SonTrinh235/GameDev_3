@@ -26,6 +26,8 @@ WALL_SLIDE_SPEED = 2
 WALL_FRICTION = 0.5
 
 # Key Mapping
+K_LEFT = pygame.K_LEFT
+K_RIGHT = pygame.K_RIGHT
 K_DASH = pygame.K_z
 K_JUMP = pygame.K_x
 K_GRAB = pygame.K_SPACE

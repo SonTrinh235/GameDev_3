@@ -55,13 +55,13 @@ class Game:
     def next_level(self):
         self.current_level_index += 1
         if self.current_level_index < len(LEVEL_DATA):
-            self.level = Level(LEVEL_DATA[self.current_level_index], self.surfaces, self.next_level)
+            self.level = Level(LEVEL_DATA[self.current_level_index], self.surfaces, self.next_level, self.menu.key_bindings)
         else:
             self.status = 'menu'
             self.current_level_index = 0
 
     def restart_current_level(self):
-        self.level = Level(LEVEL_DATA[self.current_level_index], self.surfaces, self.next_level)
+        self.level = Level(LEVEL_DATA[self.current_level_index], self.surfaces, self.next_level, self.menu.key_bindings)
 
     def run(self):
         while True:
@@ -132,17 +132,7 @@ class Game:
     
     def start_level(self):
         """Start a specific level"""
-        # Update key bindings from menu
-        self.apply_key_bindings()
-        self.level = Level(LEVEL_DATA[self.current_level_index], self.surfaces, self.next_level)
-    
-    def apply_key_bindings(self):
-        """Apply custom key bindings from menu to settings"""
-        import settings as settings_module
-        settings_module.K_JUMP = self.menu.key_bindings['jump']
-        settings_module.K_DASH = self.menu.key_bindings['dash']
-        settings_module.K_GRAB = self.menu.key_bindings['grab']
-        print(f"[GAME] Key bindings applied: Jump={pygame.key.name(settings_module.K_JUMP)}, Dash={pygame.key.name(settings_module.K_DASH)}, Grab={pygame.key.name(settings_module.K_GRAB)}")
+        self.level = Level(LEVEL_DATA[self.current_level_index], self.surfaces, self.next_level, self.menu.key_bindings)
 
 if __name__ == '__main__':
     game = Game()

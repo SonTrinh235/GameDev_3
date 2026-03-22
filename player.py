@@ -3,7 +3,7 @@ from settings import *
 from movement import Movement
 
 class Player(pygame.sprite.Sprite):
-    def __init__(self, pos, groups, obstacle_sprites, player_surfaces):
+    def __init__(self, pos, groups, obstacle_sprites, player_surfaces, key_bindings=None):
         super().__init__(groups)
         self.surfaces = player_surfaces
         self.image = self.surfaces['player_default']
@@ -20,7 +20,7 @@ class Player(pygame.sprite.Sprite):
             
         self.obstacle_sprites = obstacle_sprites
         self.display_surface = pygame.display.get_surface()
-        self.m = Movement(self)
+        self.m = Movement(self, key_bindings)
         
         self.on_ground = False
         self.on_wall = False

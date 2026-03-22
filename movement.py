@@ -2,9 +2,21 @@ import pygame
 from settings import *
 
 class Movement:
-    def __init__(self, player):
+    def __init__(self, player, key_bindings=None):
         self.p = player
         self.direction = pygame.math.Vector2()
+        
+        # Store key bindings or use defaults from settings
+        if key_bindings:
+            self.key_bindings = key_bindings
+        else:
+            self.key_bindings = {
+                'left': K_LEFT,
+                'right': K_RIGHT,
+                'jump': K_JUMP,
+                'dash': K_DASH,
+                'grab': K_GRAB
+            }
         
         self.is_dashing = False
         self.can_dash = True
@@ -27,7 +39,7 @@ class Movement:
     def input(self, keys):
         current_time = pygame.time.get_ticks()
 
-        if keys[K_DASH]:
+        if keys[self.key_bindings['dash']]:
             if not self.dash_locked and self.can_dash and not self.has_dashed:
                 self.start_dash(keys)
             self.dash_locked = True
@@ -38,10 +50,10 @@ class Movement:
             if current_time - self.wall_jump_timer > self.wall_jump_duration:
                 if not self.is_grabbing or self.p.on_ground:
                     target_x = 0
-                    if keys[pygame.K_RIGHT]:
+                    if keys[self.key_bindings['right']]:
                         target_x = 1
                         self.p.facing_right = True
-                    elif keys[pygame.K_LEFT]:
+                    elif keys[self.key_bindings['left']]:
                         target_x = -1
                         self.p.facing_right = False
                     
@@ -58,7 +70,7 @@ class Movement:
                         else:
                             self.direction.x = pygame.math.lerp(self.direction.x, 0, 0.2)
 
-        if keys[K_JUMP]:
+        if keys[self.key_bindings['jump']]:
             if not self.jump_locked:
                 if self.is_dashing:
                     self.is_dashing = False
@@ -82,8 +94,8 @@ class Movement:
                         self.is_grabbing = False
                         self.p.on_wall = False
                     elif self.p.on_wall and self.stamina > 0:
-                        is_pressing_into_wall = (self.p.facing_right and keys[pygame.K_RIGHT]) or \
-                                                (not self.p.facing_right and keys[pygame.K_LEFT])
+                        is_pressing_into_wall = (self.p.facing_right and keys[self.key_bindings['right']]) or \
+                                                (not self.p.facing_right and keys[self.key_bindings['left']])
                         
                         self.direction.y = 0 
                         self.direction.x = 0
@@ -114,7 +126,7 @@ class Movement:
 
         if not self.is_dashing:
             can_grab = current_time - self.wall_jump_timer > 100 
-            if keys[K_GRAB] and self.p.on_wall and not self.p.on_ground and self.stamina > 0 and can_grab:
+            if keys[self.key_bindings['grab']] and self.p.on_wall and not self.p.on_ground and self.stamina > 0 and can_grab:
                 self.is_grabbing = True
                 if current_time - self.dash_timer > 1000:
                     self.has_dashed = False 

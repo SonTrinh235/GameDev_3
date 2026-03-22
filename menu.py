@@ -118,6 +118,8 @@ class Menu:
         
         # Key Bindings
         self.key_bindings = {
+            'left': pygame.K_LEFT,
+            'right': pygame.K_RIGHT,
             'jump': pygame.K_x,
             'dash': pygame.K_z,
             'grab': pygame.K_SPACE
@@ -242,10 +244,10 @@ class Menu:
         key_button_height = 35
         key_gap = 50
         
-        key_bindings_keys = ['jump', 'dash', 'grab']
+        key_bindings_keys = ['left', 'right', 'jump', 'dash', 'grab']
         
         for idx, key_name in enumerate(key_bindings_keys):
-            key_y = 370 + idx * key_gap
+            key_y = 410 + idx * key_gap
             key_rect = pygame.Rect(right_x, key_y, key_button_width, key_button_height)
             if key_rect.collidepoint(pos):
                 self.waiting_for_key = key_name
@@ -454,8 +456,8 @@ class Menu:
         key_button_height = 35
         key_gap = 50
         
-        key_bindings_list = ['Jump', 'Dash', 'Grab']
-        key_bindings_keys = ['jump', 'dash', 'grab']
+        key_bindings_list = ['Move Left', 'Move Right', 'Jump', 'Dash', 'Grab']
+        key_bindings_keys = ['left', 'right', 'jump', 'dash', 'grab']
         
         for idx, (display_name, key_name) in enumerate(zip(key_bindings_list, key_bindings_keys)):
             key_y = y + 40 + idx * key_gap

@@ -27,11 +27,12 @@ class CameraGroup(pygame.sprite.Group):
             self.display_surface.blit(sprite.image, offset_pos)
 
 class Level:
-    def __init__(self, level_data, surface_dict, trigger_next_level): 
+    def __init__(self, level_data, surface_dict, trigger_next_level, key_bindings=None): 
         self.display_surface = pygame.display.get_surface()
         self.level_data = level_data
         self.surfaces = surface_dict
         self.trigger_next_level = trigger_next_level
+        self.key_bindings = key_bindings or {}
         
         self.visible_sprites = CameraGroup(self.level_data)
         self.collision_sprites = pygame.sprite.Group()
@@ -70,7 +71,7 @@ class Level:
                         'player_die': self.surfaces['player_die'],
                         'player_dash': self.surfaces['player_dash']
                     }
-                    self.player = Player((x, y), [self.visible_sprites], self.collision_sprites, p_surfs)
+                    self.player = Player((x, y), [self.visible_sprites], self.collision_sprites, p_surfs, self.key_bindings)
                 elif cell == 'C':
                     item = Item((x, y), TILE_SIZE, self.surfaces['coin'], 'coin')
                     self.item_sprites.add(item); self.visible_sprites.add(item)
