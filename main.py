@@ -6,10 +6,12 @@ from menu import Menu, PauseMenu
 class Game:
     def __init__(self):
         pygame.init()
+        pygame.mixer.init()
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         pygame.display.set_caption('GameDev_3')
         self.clock = pygame.time.Clock()
         
+        self.bgm = None  # Initialize first
         self.import_assets()
         
         self.menu = Menu()
@@ -51,17 +53,36 @@ class Game:
             'q_normal': get_surf('Assets/graphics/Normal.png', 'yellow'),
             'q_popped': get_surf('Assets/graphics/Popped.png', (100, 100, 100)),
         }
+        
+        # Load BGM
+        try:
+            pygame.mixer.music.load('Assets/super-mario-bros-theme-song.mp3')
+            self.bgm = True
+            print("[INFO] BGM loaded successfully!")
+            # Set volume to maximum
+            pygame.mixer.music.set_volume(1.0)
+            print(f"[INFO] BGM Volume set to: {pygame.mixer.music.get_volume()}")
+        except Exception as e:
+            print(f"[WARNING] Cannot load BGM: {e}")
+            self.bgm = False
 
     def next_level(self):
+        if self.bgm:
+            pygame.mixer.music.stop()
         self.current_level_index += 1
         if self.current_level_index < len(LEVEL_DATA):
             self.level = Level(LEVEL_DATA[self.current_level_index], self.surfaces, self.next_level, self.menu.key_bindings)
+            self.start_level()
         else:
             self.status = 'menu'
             self.current_level_index = 0
 
     def restart_current_level(self):
+        if self.bgm:
+            pygame.mixer.music.stop()
         self.level = Level(LEVEL_DATA[self.current_level_index], self.surfaces, self.next_level, self.menu.key_bindings)
+        if self.bgm and self.menu.sound_enabled:
+            pygame.mixer.music.play(-1)  # Restart BGM
 
     def run(self):
         while True:
@@ -87,18 +108,26 @@ class Game:
                             self.restart_current_level()
                         if event.key == pygame.K_p:
                             self.status = 'paused'
+                            if self.bgm:
+                                pygame.mixer.music.pause()
                         if event.key == pygame.K_ESCAPE:
                             self.status = 'menu'
                             self.menu.current_screen = 'main'
+                            if self.bgm:
+                                pygame.mixer.music.stop()
                 
                 elif self.status == 'paused':
                     result = self.pause_menu.handle_event(event)
                     
                     if result == 'resume':
                         self.status = 'playing'
+                        if self.bgm and self.menu.sound_enabled:
+                            pygame.mixer.music.unpause()  # Resume BGM
                     elif result == 'main_menu':
                         self.status = 'menu'
                         self.menu.current_screen = 'main'
+                        if self.bgm:
+                            pygame.mixer.music.stop()
                     elif result == 'quit':
                         pygame.quit()
                         sys.exit()
@@ -133,6 +162,11 @@ class Game:
     def start_level(self):
         """Start a specific level"""
         self.level = Level(LEVEL_DATA[self.current_level_index], self.surfaces, self.next_level, self.menu.key_bindings)
+        # Play BGM (check if sound is enabled in menu settings)
+        print(f"[DEBUG] Start level - BGM loaded: {self.bgm}, Sound enabled: {self.menu.sound_enabled}")
+        if self.bgm and self.menu.sound_enabled:
+            pygame.mixer.music.play(-1)  # -1 means loop infinitely
+            print(f"[DEBUG] Now playing BGM... volume={pygame.mixer.music.get_volume()}")
 
 if __name__ == '__main__':
     game = Game()
