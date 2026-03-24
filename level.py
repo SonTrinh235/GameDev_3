@@ -50,6 +50,16 @@ class Level:
         self.has_key = False
         self.death_count = 0
         self.coins_collected = 0
+
+        self.death_screen_active = False
+        self.death_screen_start = 0
+        self.death_screen_duration = 3000
+
+        try:
+            self.dead_sound = pygame.mixer.Sound('Assets/dead_sound.mp3')
+        except Exception:
+            self.dead_sound = None
+
         self.setup_level()
 
     def setup_level(self):
@@ -119,6 +129,32 @@ class Level:
                     h_block = HiddenBlock((x, y), TILE_SIZE, h_surf)
                     self.hidden_blocks.add(h_block); self.visible_sprites.add(h_block)
 
+    def trigger_death(self):
+        if not self.player.is_dead:
+            self.death_count += 1
+            self.player.die()
+            self.death_screen_active = True
+            self.death_screen_start = pygame.time.get_ticks()
+            if self.dead_sound:
+                self.dead_sound.play()
+
+    def draw_death_screen(self):
+        self.display_surface.fill((0, 0, 0))
+
+        player_img = self.surfaces['player_default']
+        scale = 4
+        big_img = pygame.transform.scale(
+            player_img,
+            (player_img.get_width() * scale, player_img.get_height() * scale)
+        )
+        img_rect = big_img.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 40))
+        self.display_surface.blit(big_img, img_rect)
+
+        font = pygame.font.SysFont('Arial', 52, bold=True)
+        death_text = font.render(f'Deaths: {self.death_count}', True, (255, 50, 50))
+        text_rect = death_text.get_rect(center=(SCREEN_WIDTH // 2, img_rect.bottom + 40))
+        self.display_surface.blit(death_text, text_rect)
+
     def reset(self):
         self.visible_sprites.empty()
         self.collision_sprites.empty()
@@ -137,8 +173,6 @@ class Level:
 
     def interaction(self):
         if self.player.is_dead:
-            if self.player.rect.top > self.visible_sprites.map_height + 100:
-                self.reset()
             return
 
         for h_block in self.hidden_blocks:
@@ -164,9 +198,7 @@ class Level:
                 if getattr(self.player, 'is_big', False):
                     death_sprite.kill()
                 else:
-                    if not self.player.is_dead:
-                        self.death_count += 1
-                    self.player.die()
+                    self.trigger_death()
                     return
 
         for platform in self.crumble_sprites:
@@ -181,9 +213,7 @@ class Level:
                 if hasattr(self.player, 'grow'): self.player.grow()
                 item.kill()
             elif isinstance(item, Item01):
-                if not self.player.is_dead:
-                    self.death_count += 1
-                self.player.die()
+                self.trigger_death()
                 return
 
         if getattr(self.player, 'is_big', False):
@@ -213,9 +243,7 @@ class Level:
                     self.player.m.direction.y = JUMP_SPEED * 0.8
                     self.player.m.has_dashed = False 
                 else:
-                    if not self.player.is_dead:
-                        self.death_count += 1
-                    self.player.die()
+                    self.trigger_death()
                     break 
 
         for bounce in self.bounce_sprites.sprites():
@@ -250,11 +278,18 @@ class Level:
             self.trigger_next_level()
 
         if self.player.rect.top > self.visible_sprites.map_height:
-            if not self.player.is_dead:
-                self.death_count += 1
-            self.player.die()
+            self.trigger_death()
 
     def run(self):
+        if self.death_screen_active:
+            elapsed = pygame.time.get_ticks() - self.death_screen_start
+            if elapsed >= self.death_screen_duration:
+                self.death_screen_active = False
+                self.reset()
+            else:
+                self.draw_death_screen()
+            return
+
         self.visible_sprites.update(self.player.rect.center)
         self.interaction()
         self.visible_sprites.custom_draw(self.player)
