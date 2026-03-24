@@ -135,6 +135,7 @@ class Level:
             self.player.die()
             self.death_screen_active = True
             self.death_screen_start = pygame.time.get_ticks()
+            pygame.mixer.music.pause()
             if self.dead_sound:
                 self.dead_sound.play()
 
@@ -286,6 +287,7 @@ class Level:
             if elapsed >= self.death_screen_duration:
                 self.death_screen_active = False
                 self.reset()
+                pygame.mixer.music.unpause()
             else:
                 self.draw_death_screen()
             return
