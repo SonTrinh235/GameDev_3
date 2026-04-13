@@ -71,37 +71,44 @@ class Menu:
         self.hovered_button_index = None
         
         button_width = 250
-        button_height = 60
+        button_height = 50
         button_x = 100
-        button_y_start = 250
-        button_gap = 100
+        button_y_start = 200
+        button_gap = 70
         
         self.start_button = Button(
             button_x, button_y_start, 
             button_width, button_height, 
-            "START", self.button_color, self.button_hover, self.text_color
+            "SINGLEPLAYER", self.button_color, self.button_hover, self.text_color
+        )
+        
+        self.multiplayer_button = Button(
+            button_x, button_y_start + button_gap,
+            button_width, button_height,
+            "MULTIPLAYER", self.button_color, self.button_hover, self.text_color
         )
         
         self.instructions_button = Button(
-            button_x, button_y_start + button_gap,
+            button_x, button_y_start + button_gap * 2,
             button_width, button_height,
             "INSTRUCTIONS", self.button_color, self.button_hover, self.text_color
         )
         
         self.settings_button = Button(
-            button_x, button_y_start + button_gap * 2,
+            button_x, button_y_start + button_gap * 3,
             button_width, button_height,
             "SETTINGS", self.button_color, self.button_hover, self.text_color
         )
         
         self.quit_button = Button(
-            button_x, button_y_start + button_gap * 3,
+            button_x, button_y_start + button_gap * 4,
             button_width, button_height,
             "QUIT", self.button_color, self.button_hover, self.text_color
         )
         
         self.buttons = [
             self.start_button,
+            self.multiplayer_button,
             self.instructions_button,
             self.settings_button,
             self.quit_button
@@ -110,6 +117,11 @@ class Menu:
         # State
         self.current_screen = 'main' 
         self.selected_level = 0
+        self.is_multiplayer = False
+        self.server_ip = '127.0.0.1'
+        self.ip_active = False
+        self.player_color_options = [(255, 77, 77), (77, 77, 255), (77, 255, 77), (255, 255, 77)] # Red, Blue, Green, Yellow
+        self.current_color_idx = 0
         
         # Settings
         self.sound_enabled = True
@@ -143,13 +155,20 @@ class Menu:
             
             if self.current_screen == 'main':
                 if self.start_button.is_clicked(pos):
+                    self.is_multiplayer = False
                     self.current_screen = 'level_select'
+                elif self.multiplayer_button.is_clicked(pos):
+                    self.current_screen = 'multiplayer'
                 elif self.instructions_button.is_clicked(pos):
                     self.current_screen = 'instructions'
                 elif self.settings_button.is_clicked(pos):
                     self.current_screen = 'settings'
                 elif self.quit_button.is_clicked(pos):
                     return 'quit'
+                    
+            elif self.current_screen == 'multiplayer':
+                res = self.handle_multiplayer_click(pos)
+                if res: return res
                     
             elif self.current_screen == 'level_select':
                 return self.handle_level_select(pos)
@@ -161,6 +180,17 @@ class Menu:
                 self.current_screen = 'main'
                 
         elif event.type == pygame.KEYDOWN:
+            # Handle IP input
+            if self.current_screen == 'multiplayer' and getattr(self, 'ip_active', False):
+                if event.key == pygame.K_RETURN or event.key == pygame.K_ESCAPE:
+                    self.ip_active = False
+                elif event.key == pygame.K_BACKSPACE:
+                    self.server_ip = self.server_ip[:-1]
+                else:
+                    if len(self.server_ip) < 20 and event.unicode.isprintable():
+                        self.server_ip += event.unicode
+                return
+
             # Handle key binding customization
             if self.waiting_for_key:
                 if event.key != pygame.K_ESCAPE:
@@ -200,6 +230,37 @@ class Menu:
         back_rect = pygame.Rect(50, 50, 100, 50)
         if back_rect.collidepoint(pos):
             self.current_screen = 'main'
+            
+        return None
+
+    def handle_multiplayer_click(self, pos):
+        # Check back button
+        back_rect = pygame.Rect(50, 50, 100, 50)
+        if back_rect.collidepoint(pos):
+            self.current_screen = 'main'
+            return
+            
+        center_x = SCREEN_WIDTH // 2
+        # Color select
+        left_arrow = pygame.Rect(center_x - 120, 200, 40, 40)
+        right_arrow = pygame.Rect(center_x + 80, 200, 40, 40)
+        if left_arrow.collidepoint(pos):
+            self.current_color_idx = (self.current_color_idx - 1) % len(self.player_color_options)
+        elif right_arrow.collidepoint(pos):
+            self.current_color_idx = (self.current_color_idx + 1) % len(self.player_color_options)
+            
+        # Connect
+        join_btn = pygame.Rect(center_x - 125, 300, 250, 60)
+        if join_btn.collidepoint(pos):
+            self.is_multiplayer = True
+            return ('start_multiplayer', 0) # Start level 0 for multiplayer
+            
+        # IP Field click
+        ip_rect = pygame.Rect(center_x - 150, 410, 300, 40)
+        if ip_rect.collidepoint(pos):
+            self.ip_active = True
+        else:
+            self.ip_active = False
             
         return None
 
@@ -286,8 +347,8 @@ class Menu:
         self.screen.blit(game_title, game_title_rect)
         
         if self.hovered_button_index is not None:
-            image_keys = ['default', 'jump', 'dash', 'die']
-            image_key = image_keys[self.hovered_button_index]
+            image_keys = ['default', 'jump', 'dash', 'die', 'die']
+            image_key = image_keys[min(self.hovered_button_index, len(image_keys) - 1)]
         else:
             image_key = 'default'
         
@@ -340,6 +401,59 @@ class Menu:
             level_num = self.font_title.render(str(i + 1), True, self.text_color)
             level_num_rect = level_num.get_rect(center=rect.center)
             self.screen.blit(level_num, level_num_rect)
+
+    def draw_multiplayer(self):
+        """Draw multiplayer lobby screen"""
+        self.screen.fill(self.bg_color)
+        title = self.font_title.render('MULTIPLAYER LOBBY', True, self.accent_color)
+        title_rect = title.get_rect(center=(SCREEN_WIDTH // 2, 80))
+        self.screen.blit(title, title_rect)
+        
+        back_button = Button(50, 50, 100, 50, 'BACK', self.button_color, self.button_hover, self.text_color)
+        back_button.update(pygame.mouse.get_pos())
+        back_button.draw(self.screen)
+        
+        center_x = SCREEN_WIDTH // 2
+        
+        # Color Selector
+        color_label = self.font_subtitle.render('Player Color:', True, self.text_color)
+        self.screen.blit(color_label, color_label.get_rect(center=(center_x, 160)))
+        
+        pygame.draw.rect(self.screen, self.button_color, (center_x - 120, 200, 40, 40), border_radius=5)
+        pygame.draw.rect(self.screen, self.button_color, (center_x + 80, 200, 40, 40), border_radius=5)
+        
+        arrow_left = self.font_subtitle.render('<', True, self.text_color)
+        self.screen.blit(arrow_left, arrow_left.get_rect(center=(center_x - 100, 220)))
+        arrow_right = self.font_subtitle.render('>', True, self.text_color)
+        self.screen.blit(arrow_right, arrow_right.get_rect(center=(center_x + 100, 220)))
+        
+        # Draw color box
+        current_color = self.player_color_options[self.current_color_idx]
+        pygame.draw.rect(self.screen, current_color, (center_x - 60, 190, 120, 60), border_radius=10)
+        pygame.draw.rect(self.screen, (255,255,255), (center_x - 60, 190, 120, 60), 3, border_radius=10)
+        
+        # Join Button using the existing Button class
+        join_btn = Button(center_x - 125, 300, 250, 60, 'JOIN GAME', self.button_color, self.button_hover, self.text_color)
+        join_btn.update(pygame.mouse.get_pos())
+        join_btn.draw(self.screen)
+        
+        # IP Input Box
+        ip_label = self.font_small.render('Server IP:', True, (200, 200, 200))
+        self.screen.blit(ip_label, ip_label.get_rect(center=(center_x, 390)))
+        
+        ip_rect = pygame.Rect(center_x - 150, 410, 300, 40)
+        is_active = getattr(self, 'ip_active', False)
+        pygame.draw.rect(self.screen, (50, 50, 60), ip_rect, border_radius=5)
+        border_color = self.accent_color if is_active else (150, 150, 150)
+        pygame.draw.rect(self.screen, border_color, ip_rect, 2, border_radius=5)
+        
+        # Blinking cursor
+        cursor = "|" if is_active and pygame.time.get_ticks() % 1000 < 500 else ""
+        ip_text = self.font_small.render(self.server_ip + cursor, True, self.text_color)
+        self.screen.blit(ip_text, ip_text.get_rect(center=ip_rect.center))
+        
+        hint = self.font_small.render('Click to edit IP' if not is_active else 'Press ENTER to save', True, (100, 150, 200))
+        self.screen.blit(hint, hint.get_rect(center=(center_x, 465)))
 
     def draw_instructions(self):
         """Draw instructions screen"""
@@ -490,6 +604,8 @@ class Menu:
             self.draw_main_menu()
         elif self.current_screen == 'level_select':
             self.draw_level_select()
+        elif self.current_screen == 'multiplayer':
+            self.draw_multiplayer()
         elif self.current_screen == 'instructions':
             self.draw_instructions()
         elif self.current_screen == 'settings':

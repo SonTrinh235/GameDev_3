@@ -27,12 +27,20 @@ class CameraGroup(pygame.sprite.Group):
             self.display_surface.blit(sprite.image, offset_pos)
 
 class Level:
-    def __init__(self, level_data, surface_dict, trigger_next_level, key_bindings=None): 
+    def __init__(self, level_data, surface_dict, trigger_next_level, key_bindings=None, is_multiplayer=False, player_color=None, remote_color=None): 
         self.display_surface = pygame.display.get_surface()
         self.level_data = level_data
         self.surfaces = surface_dict
         self.trigger_next_level = trigger_next_level
         self.key_bindings = key_bindings or {}
+        
+        self.is_multiplayer = is_multiplayer
+        self.player_color = player_color
+        self.remote_color = remote_color
+        self.outbound_events = []
+        self.remote_player = None
+        self.player_at_goal = False
+        self.remote_at_goal = False
         
         self.visible_sprites = CameraGroup(self.level_data)
         self.collision_sprites = pygame.sprite.Group()
@@ -71,7 +79,10 @@ class Level:
                         'player_die': self.surfaces['player_die'],
                         'player_dash': self.surfaces['player_dash']
                     }
-                    self.player = Player((x, y), [self.visible_sprites], self.collision_sprites, p_surfs, self.key_bindings)
+                    self.player = Player((x, y), [self.visible_sprites], self.collision_sprites, p_surfs, self.key_bindings, self.player_color)
+                    if self.is_multiplayer:
+                        from player import RemotePlayer
+                        self.remote_player = RemotePlayer((x, y), [self.visible_sprites], p_surfs, self.remote_color)
                 elif cell == 'C':
                     item = Item((x, y), TILE_SIZE, self.surfaces['coin'], 'coin')
                     self.item_sprites.add(item); self.visible_sprites.add(item)
@@ -118,6 +129,9 @@ class Level:
                     h_surf = self.surfaces.get('q_popped')
                     h_block = HiddenBlock((x, y), TILE_SIZE, h_surf)
                     self.hidden_blocks.add(h_block); self.visible_sprites.add(h_block)
+        for group in [self.item_sprites, self.enemy_sprites, self.door_sprites, self.surprise_blocks, self.hidden_blocks, self.crumble_sprites]:
+            for sprite in group:
+                sprite.uid = f"{type(sprite).__name__}_{sprite.rect.x}_{sprite.rect.y}"
 
     def reset(self):
         self.visible_sprites.empty()
@@ -135,10 +149,27 @@ class Level:
         self.has_key = False
         self.setup_level()
 
+    def process_network_events(self, events):
+        for event in events:
+            if event.get('type') == 'die':
+                self.reset()
+            elif event.get('type') == 'kill':
+                uid = event.get('uid')
+                for group in [self.item_sprites, self.enemy_sprites, self.door_sprites, self.surprise_blocks, self.hidden_blocks, self.crumble_sprites]:
+                    for sprite in group:
+                        if getattr(sprite, 'uid', None) == uid:
+                            sprite.kill()
+                            if sprite in self.collision_sprites:
+                                self.collision_sprites.remove(sprite)
+                            break
+            elif event.get('type') == 'remote_goal':
+                self.remote_at_goal = event.get('at_goal', False)
+
     def interaction(self):
         if self.player.is_dead:
             if self.player.rect.top > self.visible_sprites.map_height + 100:
                 self.reset()
+                self.outbound_events.append({"type": "die"})
             return
 
         for h_block in self.hidden_blocks:
@@ -166,6 +197,7 @@ class Level:
                 else:
                     if not self.player.is_dead:
                         self.death_count += 1
+                        self.outbound_events.append({"type": "die"})
                     self.player.die()
                     return
 
@@ -180,6 +212,7 @@ class Level:
             if isinstance(item, Item02):
                 if hasattr(self.player, 'grow'): self.player.grow()
                 item.kill()
+                self.outbound_events.append({"type": "kill", "uid": getattr(item, 'uid', None)})
             elif isinstance(item, Item01):
                 if not self.player.is_dead:
                     self.death_count += 1
@@ -210,11 +243,13 @@ class Level:
             if enemy.rect.colliderect(self.player.rect):
                 if self.player.m.direction.y > 0 and self.player.rect.bottom <= enemy.rect.bottom + 10:
                     enemy.kill()
+                    self.outbound_events.append({"type": "kill", "uid": getattr(enemy, 'uid', None)})
                     self.player.m.direction.y = JUMP_SPEED * 0.8
                     self.player.m.has_dashed = False 
                 else:
                     if not self.player.is_dead:
                         self.death_count += 1
+                        self.outbound_events.append({"type": "die"})
                     self.player.die()
                     break 
 
@@ -236,22 +271,38 @@ class Level:
                     if item.item_type == 'coin':
                         self.coins_collected += 1
                     item.kill()
+                    self.outbound_events.append({"type": "kill", "uid": getattr(item, 'uid', None)})
 
         if self.has_key:
             for door in self.door_sprites.sprites():
                 if self.player.rect.inflate(10, 10).colliderect(door.rect):
                     door.kill()
+                    self.outbound_events.append({"type": "kill", "uid": getattr(door, 'uid', None)})
                     self.has_key = False
                     for item in self.item_sprites.sprites():
                         if isinstance(item, Item) and item.item_type == 'key' and item.is_following:
                             item.kill()
+                            self.outbound_events.append({"type": "kill", "uid": getattr(item, 'uid', None)})
 
         if pygame.sprite.spritecollide(self.player, self.goal_sprites, False):
-            self.trigger_next_level()
+            self.player_at_goal = True
+        else:
+            self.player_at_goal = False
+            
+        if self.is_multiplayer:
+            # Sync goal state
+            self.outbound_events.append({"type": "remote_goal", "at_goal": self.player_at_goal})
+            
+            if self.player_at_goal and self.remote_at_goal:
+                self.trigger_next_level()
+        else:
+            if self.player_at_goal:
+                self.trigger_next_level()
 
         if self.player.rect.top > self.visible_sprites.map_height:
             if not self.player.is_dead:
                 self.death_count += 1
+                self.outbound_events.append({"type": "die"})
             self.player.die()
 
     def run(self):

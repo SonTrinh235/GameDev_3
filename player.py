@@ -3,9 +3,14 @@ from settings import *
 from movement import Movement
 
 class Player(pygame.sprite.Sprite):
-    def __init__(self, pos, groups, obstacle_sprites, player_surfaces, key_bindings=None):
+    def __init__(self, pos, groups, obstacle_sprites, player_surfaces, key_bindings=None, color_tint=None):
         super().__init__(groups)
         self.surfaces = player_surfaces
+        
+        # Apply color tint if provided
+        if color_tint:
+            self.apply_tint(color_tint)
+            
         self.image = self.surfaces['player_default']
         self.normal_surf = self.image
         self.rect = self.image.get_rect(topleft = pos)
@@ -29,6 +34,15 @@ class Player(pygame.sprite.Sprite):
         self.rotation_angle = 0
         self.remainder_x = 0.0
         self.remainder_y = 0.0
+
+    def apply_tint(self, color):
+        """Apply a color tint to all player surfaces"""
+        for key in self.surfaces:
+            surf = self.surfaces[key].copy()
+            color_surf = pygame.Surface(surf.get_size()).convert_alpha()
+            color_surf.fill((*color, 255))
+            surf.blit(color_surf, (0,0), special_flags=pygame.BLEND_MULT)
+            self.surfaces[key] = surf
 
     def die(self):
         if not self.is_dead:
@@ -158,3 +172,61 @@ class Player(pygame.sprite.Sprite):
             bar_rect = pygame.Rect(self.rect.left - offset.x, self.rect.top - 15 - offset.y, bar_width, 5)
             color = 'red' if self.m.stamina < 100 else 'yellow' if self.m.stamina < 200 else 'green'
             pygame.draw.rect(self.display_surface, color, bar_rect)
+
+class RemotePlayer(pygame.sprite.Sprite):
+    """Player controlled by the network"""
+    def __init__(self, pos, groups, player_surfaces, color_tint=None):
+        super().__init__(groups)
+        
+        self.surfaces = {}
+        for k, v in player_surfaces.items():
+            self.surfaces[k] = v.copy()
+            
+        if color_tint:
+            self.apply_tint(color_tint)
+            
+        self.image = self.surfaces['player_default']
+        self.rect = self.image.get_rect(topleft = pos)
+        self.target_pos = list(pos)
+        self.facing_right = True
+        self.is_dead = False
+        self.is_big = False
+        self.is_dashing = False
+
+    def apply_tint(self, color):
+        for key in self.surfaces:
+            surf = self.surfaces[key].copy()
+            color_surf = pygame.Surface(surf.get_size()).convert_alpha()
+            color_surf.fill((*color, 255))
+            surf.blit(color_surf, (0,0), special_flags=pygame.BLEND_MULT)
+            self.surfaces[key] = surf
+
+    def update_network_state(self, state):
+        self.target_pos = [state.get('x', self.rect.x), state.get('y', self.rect.y)]
+        self.facing_right = state.get('facing_right', True)
+        self.is_dead = state.get('is_dead', False)
+        self.is_big = state.get('is_big', False)
+        self.is_dashing = state.get('is_dashing', False)
+        
+        self.rect.x = self.target_pos[0]
+        self.rect.y = self.target_pos[1]
+
+    def animate(self):
+        if self.is_dead:
+            img = self.surfaces['player_die']
+        elif self.is_dashing:
+            img = self.surfaces['player_dash']
+        else:
+            img = self.surfaces['player_default']
+            
+        if not self.facing_right:
+            img = pygame.transform.flip(img, True, False)
+            
+        self.image = img
+        
+        curr_bottom = self.rect.bottom
+        curr_centerx = self.rect.centerx
+        self.rect = self.image.get_rect(midbottom = (curr_centerx, curr_bottom))
+
+    def update(self, *args):
+        self.animate()

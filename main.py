@@ -2,6 +2,7 @@ import pygame, sys
 from settings import *
 from level import Level
 from menu import Menu, PauseMenu
+import network
 
 class Game:
     def __init__(self):
@@ -14,6 +15,7 @@ class Game:
         self.bgm = None  # Initialize first
         self.import_assets()
         
+        self.network = network.Network()
         self.menu = Menu()
         self.pause_menu = PauseMenu()
         
@@ -80,7 +82,7 @@ class Game:
     def restart_current_level(self):
         if self.bgm:
             pygame.mixer.music.stop()
-        self.level = Level(LEVEL_DATA[self.current_level_index], self.surfaces, self.next_level, self.menu.key_bindings)
+        self.start_level()
         if self.bgm and self.menu.sound_enabled:
             pygame.mixer.music.play(-1)  # Restart BGM
 
@@ -101,6 +103,13 @@ class Game:
                         self.current_level_index = result[1]
                         self.start_level()
                         self.status = 'playing'
+                    elif isinstance(result, tuple) and result[0] == 'start_multiplayer':
+                        if self.network.connect(self.menu.server_ip):
+                            self.current_level_index = result[1]
+                            self.start_level()
+                            self.status = 'playing'
+                        else:
+                            print("[UI] Cannot connect to server")
                 
                 elif self.status == 'playing':
                     if event.type == pygame.KEYDOWN:
@@ -136,6 +145,36 @@ class Game:
                 self.menu.draw()
             elif self.status == 'playing':
                 self.screen.fill(BG_COLOR)
+                
+                if self.menu.is_multiplayer and self.network.connected:
+                    events = self.network.get_events()
+                    sync_events = []
+                    for e in events:
+                        if e.get('type') == 'state':
+                            if getattr(self.level, 'remote_player', None):
+                                self.level.remote_player.update_network_state(e)
+                        else:
+                            sync_events.append(e)
+                    self.level.process_network_events(sync_events)
+                    
+                    if getattr(self.level, 'player', None):
+                        p = self.level.player
+                        pack = {
+                            "type": "state",
+                            "x": p.rect.x,
+                            "y": p.rect.y,
+                            "facing_right": p.facing_right,
+                            "is_dead": p.is_dead,
+                            "is_big": p.is_big,
+                            "is_dashing": p.m.is_dashing
+                        }
+                        self.network.send(pack)
+                        
+                    if getattr(self.level, 'outbound_events', None):
+                        for ev in self.level.outbound_events:
+                            self.network.send(ev)
+                        self.level.outbound_events.clear()
+
                 self.level.run()
                 self.draw_pause_button()
             elif self.status == 'paused':
@@ -161,7 +200,12 @@ class Game:
     
     def start_level(self):
         """Start a specific level"""
-        self.level = Level(LEVEL_DATA[self.current_level_index], self.surfaces, self.next_level, self.menu.key_bindings)
+        player_color = self.menu.player_color_options[self.menu.current_color_idx] if self.menu.is_multiplayer else None
+        remote_color_idx = (self.menu.current_color_idx + 1) % len(self.menu.player_color_options)
+        remote_color = self.menu.player_color_options[remote_color_idx] if self.menu.is_multiplayer else None
+        
+        self.level = Level(LEVEL_DATA[self.current_level_index], self.surfaces, self.next_level, self.menu.key_bindings, self.menu.is_multiplayer, player_color, remote_color)
+        
         # Play BGM (check if sound is enabled in menu settings)
         print(f"[DEBUG] Start level - BGM loaded: {self.bgm}, Sound enabled: {self.menu.sound_enabled}")
         if self.bgm and self.menu.sound_enabled:
