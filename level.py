@@ -27,7 +27,7 @@ class CameraGroup(pygame.sprite.Group):
             self.display_surface.blit(sprite.image, offset_pos)
 
 class Level:
-    def __init__(self, level_data, surface_dict, trigger_next_level, key_bindings=None, is_multiplayer=False, player_color=None, remote_color=None): 
+    def __init__(self, level_data, surface_dict, trigger_next_level, key_bindings=None, is_multiplayer=False, player_color=None, remote_color=None, network_id=1): 
         self.display_surface = pygame.display.get_surface()
         self.level_data = level_data
         self.surfaces = surface_dict
@@ -37,6 +37,7 @@ class Level:
         self.is_multiplayer = is_multiplayer
         self.player_color = player_color
         self.remote_color = remote_color
+        self.network_id = network_id
         self.outbound_events = []
         self.remote_player = None
         self.player_at_goal = False
@@ -57,6 +58,7 @@ class Level:
         
         self.has_key = False
         self.death_count = 0
+        self.remote_death_count = 0
         self.coins_collected = 0
 
         self.death_screen_active = False
@@ -89,10 +91,17 @@ class Level:
                         'player_die': self.surfaces['player_die'],
                         'player_dash': self.surfaces['player_dash']
                     }
-                    self.player = Player((x, y), [self.visible_sprites], self.collision_sprites, p_surfs, self.key_bindings, self.player_color)
+                    if self.is_multiplayer:
+                        p_x = x if self.network_id == 1 else x + 40
+                        r_x = x + 40 if self.network_id == 1 else x
+                    else:
+                        p_x = x
+                        r_x = x
+                    self.player = Player((p_x, y), [self.visible_sprites], self.collision_sprites, p_surfs, self.key_bindings, self.player_color)
                     if self.is_multiplayer:
                         from player import RemotePlayer
-                        self.remote_player = RemotePlayer((x, y), [self.visible_sprites], p_surfs, self.remote_color)
+                        self.remote_player = RemotePlayer((r_x, y), [self.visible_sprites, self.collision_sprites], p_surfs, self.remote_color)
+                        self.player.tether_target = self.remote_player
                 elif cell == 'C':
                     item = Item((x, y), TILE_SIZE, self.surfaces['coin'], 'coin')
                     self.item_sprites.add(item); self.visible_sprites.add(item)
@@ -148,7 +157,7 @@ class Level:
             self.death_count += 1
             self.player.die()
             if hasattr(self, 'outbound_events'):
-                self.outbound_events.append({"type": "die"})
+                self.outbound_events.append({"type": "die", "death_count": self.death_count})
             self.death_screen_active = True
             self.death_screen_start = pygame.time.get_ticks()
             pygame.mixer.music.pause()
@@ -157,20 +166,47 @@ class Level:
 
     def draw_death_screen(self):
         self.display_surface.fill((0, 0, 0))
-
-        player_img = self.surfaces['player_default']
-        scale = 4
-        big_img = pygame.transform.scale(
-            player_img,
-            (player_img.get_width() * scale, player_img.get_height() * scale)
-        )
-        img_rect = big_img.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 40))
-        self.display_surface.blit(big_img, img_rect)
-
         font = pygame.font.SysFont('Arial', 52, bold=True)
-        death_text = font.render(f'Deaths: {self.death_count}', True, (255, 50, 50))
-        text_rect = death_text.get_rect(center=(SCREEN_WIDTH // 2, img_rect.bottom + 40))
-        self.display_surface.blit(death_text, text_rect)
+        scale = 4
+
+        if self.is_multiplayer and self.remote_player:
+            # Draw local player
+            p1_img = self.player.surfaces['player_default']
+            big_p1 = pygame.transform.scale(
+                p1_img,
+                (p1_img.get_width() * scale, p1_img.get_height() * scale)
+            )
+            p1_rect = big_p1.get_rect(center=(SCREEN_WIDTH // 3, SCREEN_HEIGHT // 2 - 40))
+            self.display_surface.blit(big_p1, p1_rect)
+            
+            p1_text = font.render(f'Deaths: {self.death_count}', True, self.player_color or (255, 50, 50))
+            p1_t_rect = p1_text.get_rect(center=(SCREEN_WIDTH // 3, p1_rect.bottom + 40))
+            self.display_surface.blit(p1_text, p1_t_rect)
+
+            # Draw remote player
+            p2_img = self.remote_player.surfaces['player_default']
+            big_p2 = pygame.transform.scale(
+                p2_img,
+                (p2_img.get_width() * scale, p2_img.get_height() * scale)
+            )
+            p2_rect = big_p2.get_rect(center=(SCREEN_WIDTH * 2 // 3, SCREEN_HEIGHT // 2 - 40))
+            self.display_surface.blit(big_p2, p2_rect)
+
+            p2_text = font.render(f'Deaths: {self.remote_death_count}', True, self.remote_color or (255, 50, 50))
+            p2_t_rect = p2_text.get_rect(center=(SCREEN_WIDTH * 2 // 3, p2_rect.bottom + 40))
+            self.display_surface.blit(p2_text, p2_t_rect)
+        else:
+            player_img = getattr(self, 'player', None) and self.player.surfaces.get('player_default', self.surfaces['player_default']) or self.surfaces['player_default']
+            big_img = pygame.transform.scale(
+                player_img,
+                (player_img.get_width() * scale, player_img.get_height() * scale)
+            )
+            img_rect = big_img.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 40))
+            self.display_surface.blit(big_img, img_rect)
+
+            death_text = font.render(f'Deaths: {self.death_count}', True, (255, 50, 50))
+            text_rect = death_text.get_rect(center=(SCREEN_WIDTH // 2, img_rect.bottom + 40))
+            self.display_surface.blit(death_text, text_rect)
 
     def reset(self):
         self.visible_sprites.empty()
@@ -191,7 +227,12 @@ class Level:
     def process_network_events(self, events):
         for event in events:
             if event.get('type') == 'die':
-                self.reset()
+                self.remote_death_count = event.get('death_count', self.remote_death_count + 1)
+                self.death_screen_active = True
+                self.death_screen_start = pygame.time.get_ticks()
+                pygame.mixer.music.pause()
+                if self.dead_sound and not self.player.is_dead:
+                    self.dead_sound.play()
             elif event.get('type') == 'kill':
                 uid = event.get('uid')
                 for group in [self.item_sprites, self.enemy_sprites, self.door_sprites, self.surprise_blocks, self.hidden_blocks, self.crumble_sprites]:
@@ -257,7 +298,7 @@ class Level:
                 targets = list(self.collision_sprites) + list(self.surprise_blocks) + list(self.spike_sprites)
                 for sprite in targets:
                     if sprite.rect.colliderect(foot_rect):
-                        if sprite != self.player:
+                        if sprite != self.player and type(sprite).__name__ != 'RemotePlayer':
                             sprite.kill()
                             if sprite in self.collision_sprites:
                                 self.collision_sprites.remove(sprite)
@@ -344,6 +385,10 @@ class Level:
         self.visible_sprites.update(self.player.rect.center)
         self.interaction()
         self.visible_sprites.custom_draw(self.player)
+        
+        if self.is_multiplayer and getattr(self, 'remote_player', None):
+            self.draw_tether()
+            
         self.player.draw_stamina(self.visible_sprites.offset)
         self.draw_death_counter()
         self.draw_coins_counter()
@@ -351,7 +396,10 @@ class Level:
     def draw_death_counter(self):
         """Draw the death counter on the screen"""
         font = pygame.font.SysFont('Arial', 28, bold=True)
-        death_text = font.render(f'Deaths: {self.death_count}', True, (255, 50, 50))
+        if self.is_multiplayer:
+            death_text = font.render(f'P1: {self.death_count} | P2: {self.remote_death_count}', True, (255, 50, 50))
+        else:
+            death_text = font.render(f'Deaths: {self.death_count}', True, (255, 50, 50))
         death_rect = death_text.get_rect(topleft=(20, 20))
         
         # Draw background
@@ -373,3 +421,42 @@ class Level:
         pygame.draw.rect(self.display_surface, (150, 120, 0), bg_rect, 2, border_radius=8)
         
         self.display_surface.blit(coins_text, coins_rect)
+
+    def draw_tether(self):
+        if self.player.is_dead or self.remote_player.is_dead:
+            return
+            
+        p1_pos = (self.player.rect.centerx - self.visible_sprites.offset.x, 
+                  self.player.rect.centery - self.visible_sprites.offset.y)
+        p2_pos = (self.remote_player.rect.centerx - self.visible_sprites.offset.x, 
+                  self.remote_player.rect.centery - self.visible_sprites.offset.y)
+                  
+        import math
+        dist = math.hypot(p2_pos[0] - p1_pos[0], p2_pos[1] - p1_pos[1])
+        MAX_TETHER = 500
+        
+        tension = min(dist / MAX_TETHER, 1.0)
+        
+        r = int(255 * tension)
+        g = int(255 * (1 - tension))
+        b = 50
+        color = (r, g, b)
+        
+        thickness = max(2, int(6 - tension * 3))
+        
+        if dist < MAX_TETHER:
+            droop = (MAX_TETHER - dist) * 0.3
+            mid_x = (p1_pos[0] + p2_pos[0]) / 2
+            mid_y = ((p1_pos[1] + p2_pos[1]) / 2) + droop
+            
+            steps = 10
+            prev_point = p1_pos
+            for i in range(1, steps + 1):
+                t = i / steps
+                x = (1-t)**2 * p1_pos[0] + 2*(1-t)*t * mid_x + t**2 * p2_pos[0]
+                y = (1-t)**2 * p1_pos[1] + 2*(1-t)*t * mid_y + t**2 * p2_pos[1]
+                
+                pygame.draw.line(self.display_surface, color, prev_point, (x, y), thickness)
+                prev_point = (x, y)
+        else:
+            pygame.draw.line(self.display_surface, color, p1_pos, p2_pos, thickness)

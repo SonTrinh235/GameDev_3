@@ -50,6 +50,14 @@ def threaded_client(conn, player_id):
     print(f"Player {player_id} disconnected.")
     if conn in clients:
         clients.remove(conn)
+        
+    disconnect_msg = json.dumps({"type": "disconnected", "id": player_id}) + "\n"
+    for c in clients:
+        try:
+            c.send(disconnect_msg.encode())
+        except:
+            pass
+            
     conn.close()
 
 while True:

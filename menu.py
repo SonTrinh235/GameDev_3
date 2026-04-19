@@ -117,11 +117,15 @@ class Menu:
         # State
         self.current_screen = 'main' 
         self.selected_level = 0
+        self.multiplayer_selected_level = 0
         self.is_multiplayer = False
         self.server_ip = '127.0.0.1'
         self.ip_active = False
         self.player_color_options = [(255, 77, 77), (77, 77, 255), (77, 255, 77), (255, 255, 77)] # Red, Blue, Green, Yellow
         self.current_color_idx = 0
+        self.lobby_connected = False
+        self.remote_color_idx = -1
+        self.last_sent_color = -1
         
         # Settings
         self.sound_enabled = True
@@ -234,33 +238,68 @@ class Menu:
         return None
 
     def handle_multiplayer_click(self, pos):
-        # Check back button
         back_rect = pygame.Rect(50, 50, 100, 50)
         if back_rect.collidepoint(pos):
             self.current_screen = 'main'
+            if getattr(self, 'lobby_connected', False):
+                return 'disconnect_lobby'
             return
             
         center_x = SCREEN_WIDTH // 2
-        # Color select
-        left_arrow = pygame.Rect(center_x - 120, 200, 40, 40)
-        right_arrow = pygame.Rect(center_x + 80, 200, 40, 40)
-        if left_arrow.collidepoint(pos):
-            self.current_color_idx = (self.current_color_idx - 1) % len(self.player_color_options)
-        elif right_arrow.collidepoint(pos):
-            self.current_color_idx = (self.current_color_idx + 1) % len(self.player_color_options)
-            
-        # Connect
-        join_btn = pygame.Rect(center_x - 125, 300, 250, 60)
-        if join_btn.collidepoint(pos):
-            self.is_multiplayer = True
-            return ('start_multiplayer', 0) # Start level 0 for multiplayer
-            
-        # IP Field click
-        ip_rect = pygame.Rect(center_x - 150, 410, 300, 40)
-        if ip_rect.collidepoint(pos):
-            self.ip_active = True
+        
+        if not getattr(self, 'lobby_connected', False):
+            left_arrow = pygame.Rect(center_x - 120, 200, 40, 40)
+            right_arrow = pygame.Rect(center_x + 80, 200, 40, 40)
+            if left_arrow.collidepoint(pos):
+                self.current_color_idx = (self.current_color_idx - 1) % len(self.player_color_options)
+            elif right_arrow.collidepoint(pos):
+                self.current_color_idx = (self.current_color_idx + 1) % len(self.player_color_options)
+                
+            connect_btn = pygame.Rect(center_x - 125, 380, 250, 60)
+            if connect_btn.collidepoint(pos):
+                self.is_multiplayer = True
+                return ('connect_lobby', self.server_ip)
+                
+            ip_rect = pygame.Rect(center_x - 150, 310, 300, 40)
+            if ip_rect.collidepoint(pos):
+                self.ip_active = True
+            else:
+                self.ip_active = False
         else:
-            self.ip_active = False
+            if getattr(self, 'is_host', False):
+                my_x = SCREEN_WIDTH // 3
+            else:
+                my_x = SCREEN_WIDTH * 2 // 3
+                
+            left_arrow = pygame.Rect(my_x - 60, 350, 30, 30)
+            right_arrow = pygame.Rect(my_x + 30, 350, 30, 30)
+            
+            if left_arrow.collidepoint(pos):
+                self.current_color_idx = (self.current_color_idx - 1) % len(self.player_color_options)
+                if self.current_color_idx == self.remote_color_idx:
+                    self.current_color_idx = (self.current_color_idx - 1) % len(self.player_color_options)
+            elif right_arrow.collidepoint(pos):
+                self.current_color_idx = (self.current_color_idx + 1) % len(self.player_color_options)
+                if self.current_color_idx == self.remote_color_idx:
+                    self.current_color_idx = (self.current_color_idx + 1) % len(self.player_color_options)
+            
+            if getattr(self, 'is_host', False):
+                from settings import LEVEL_DATA
+                num_levels = len(LEVEL_DATA)
+                
+                lvl_left_rect = pygame.Rect(center_x - 70, 420, 30, 30)
+                lvl_right_rect = pygame.Rect(center_x + 40, 420, 30, 30)
+                
+                if lvl_left_rect.collidepoint(pos):
+                    self.multiplayer_selected_level = (getattr(self, 'multiplayer_selected_level', 0) - 1) % num_levels
+                    return
+                elif lvl_right_rect.collidepoint(pos):
+                    self.multiplayer_selected_level = (getattr(self, 'multiplayer_selected_level', 0) + 1) % num_levels
+                    return
+                
+                start_btn = pygame.Rect(center_x - 125, 480, 250, 60)
+                if start_btn.collidepoint(pos):
+                    return ('start_multiplayer', getattr(self, 'multiplayer_selected_level', 0))
             
         return None
 
@@ -402,12 +441,22 @@ class Menu:
             level_num_rect = level_num.get_rect(center=rect.center)
             self.screen.blit(level_num, level_num_rect)
 
+    def draw_player_preview(self, center_pos, color, text_label):
+        img = self.player_images['default'].copy()
+        color_surf = pygame.Surface(img.get_size()).convert_alpha()
+        color_surf.fill((*color, 255))
+        img.blit(color_surf, (0,0), special_flags=pygame.BLEND_MULT)
+        
+        scaled_img = pygame.transform.scale(img, (96, 96))
+        img_rect = scaled_img.get_rect(center=center_pos)
+        self.screen.blit(scaled_img, img_rect)
+        
+        label = self.font_small.render(text_label, True, self.text_color)
+        self.screen.blit(label, label.get_rect(center=(center_pos[0], center_pos[1] - 70)))
+
     def draw_multiplayer(self):
         """Draw multiplayer lobby screen"""
         self.screen.fill(self.bg_color)
-        title = self.font_title.render('MULTIPLAYER LOBBY', True, self.accent_color)
-        title_rect = title.get_rect(center=(SCREEN_WIDTH // 2, 80))
-        self.screen.blit(title, title_rect)
         
         back_button = Button(50, 50, 100, 50, 'BACK', self.button_color, self.button_hover, self.text_color)
         back_button.update(pygame.mouse.get_pos())
@@ -415,45 +464,105 @@ class Menu:
         
         center_x = SCREEN_WIDTH // 2
         
-        # Color Selector
-        color_label = self.font_subtitle.render('Player Color:', True, self.text_color)
-        self.screen.blit(color_label, color_label.get_rect(center=(center_x, 160)))
-        
-        pygame.draw.rect(self.screen, self.button_color, (center_x - 120, 200, 40, 40), border_radius=5)
-        pygame.draw.rect(self.screen, self.button_color, (center_x + 80, 200, 40, 40), border_radius=5)
-        
-        arrow_left = self.font_subtitle.render('<', True, self.text_color)
-        self.screen.blit(arrow_left, arrow_left.get_rect(center=(center_x - 100, 220)))
-        arrow_right = self.font_subtitle.render('>', True, self.text_color)
-        self.screen.blit(arrow_right, arrow_right.get_rect(center=(center_x + 100, 220)))
-        
-        # Draw color box
-        current_color = self.player_color_options[self.current_color_idx]
-        pygame.draw.rect(self.screen, current_color, (center_x - 60, 190, 120, 60), border_radius=10)
-        pygame.draw.rect(self.screen, (255,255,255), (center_x - 60, 190, 120, 60), 3, border_radius=10)
-        
-        # Join Button using the existing Button class
-        join_btn = Button(center_x - 125, 300, 250, 60, 'JOIN GAME', self.button_color, self.button_hover, self.text_color)
-        join_btn.update(pygame.mouse.get_pos())
-        join_btn.draw(self.screen)
-        
-        # IP Input Box
-        ip_label = self.font_small.render('Server IP:', True, (200, 200, 200))
-        self.screen.blit(ip_label, ip_label.get_rect(center=(center_x, 390)))
-        
-        ip_rect = pygame.Rect(center_x - 150, 410, 300, 40)
-        is_active = getattr(self, 'ip_active', False)
-        pygame.draw.rect(self.screen, (50, 50, 60), ip_rect, border_radius=5)
-        border_color = self.accent_color if is_active else (150, 150, 150)
-        pygame.draw.rect(self.screen, border_color, ip_rect, 2, border_radius=5)
-        
-        # Blinking cursor
-        cursor = "|" if is_active and pygame.time.get_ticks() % 1000 < 500 else ""
-        ip_text = self.font_small.render(self.server_ip + cursor, True, self.text_color)
-        self.screen.blit(ip_text, ip_text.get_rect(center=ip_rect.center))
-        
-        hint = self.font_small.render('Click to edit IP' if not is_active else 'Press ENTER to save', True, (100, 150, 200))
-        self.screen.blit(hint, hint.get_rect(center=(center_x, 465)))
+        if not getattr(self, 'lobby_connected', False):
+            title = self.font_title.render('MULTIPLAYER', True, self.accent_color)
+            title_rect = title.get_rect(center=(center_x, 80))
+            self.screen.blit(title, title_rect)
+            
+            color_label = self.font_subtitle.render('Your Initial Color:', True, self.text_color)
+            self.screen.blit(color_label, color_label.get_rect(center=(center_x, 160)))
+            
+            pygame.draw.rect(self.screen, self.button_color, (center_x - 120, 200, 40, 40), border_radius=5)
+            pygame.draw.rect(self.screen, self.button_color, (center_x + 80, 200, 40, 40), border_radius=5)
+            
+            arrow_left = self.font_subtitle.render('<', True, self.text_color)
+            self.screen.blit(arrow_left, arrow_left.get_rect(center=(center_x - 100, 220)))
+            arrow_right = self.font_subtitle.render('>', True, self.text_color)
+            self.screen.blit(arrow_right, arrow_right.get_rect(center=(center_x + 100, 220)))
+            
+            current_color = self.player_color_options[self.current_color_idx]
+            pygame.draw.rect(self.screen, current_color, (center_x - 60, 190, 120, 60), border_radius=10)
+            pygame.draw.rect(self.screen, (255,255,255), (center_x - 60, 190, 120, 60), 3, border_radius=10)
+            
+            # IP Input Box
+            ip_label = self.font_small.render('Server IP:', True, (200, 200, 200))
+            self.screen.blit(ip_label, ip_label.get_rect(center=(center_x, 290)))
+            
+            ip_rect = pygame.Rect(center_x - 150, 310, 300, 40)
+            is_active = getattr(self, 'ip_active', False)
+            pygame.draw.rect(self.screen, (50, 50, 60), ip_rect, border_radius=5)
+            border_color = self.accent_color if is_active else (150, 150, 150)
+            pygame.draw.rect(self.screen, border_color, ip_rect, 2, border_radius=5)
+            
+            # Blinking cursor
+            cursor = "|" if is_active and pygame.time.get_ticks() % 1000 < 500 else ""
+            ip_text = self.font_small.render(self.server_ip + cursor, True, self.text_color)
+            self.screen.blit(ip_text, ip_text.get_rect(center=ip_rect.center))
+            
+            hint = self.font_small.render('Click to edit IP' if not is_active else 'Press ENTER to save', True, (100, 150, 200))
+            self.screen.blit(hint, hint.get_rect(center=(center_x, 360)))
+            
+            connect_btn = Button(center_x - 125, 380, 250, 60, 'CONNECT', self.button_color, self.button_hover, self.text_color)
+            connect_btn.update(pygame.mouse.get_pos())
+            connect_btn.draw(self.screen)
+            
+        else:
+            title = self.font_title.render('WAITING ROOM', True, self.accent_color)
+            title_rect = title.get_rect(center=(center_x, 80))
+            self.screen.blit(title, title_rect)
+            
+            if getattr(self, 'is_host', False):
+                my_pos = (SCREEN_WIDTH // 3, 250)
+                other_pos = (SCREEN_WIDTH * 2 // 3, 250)
+                my_label = "Player 1 (Host - YOU)"
+                other_label = "Player 2"
+            else:
+                other_pos = (SCREEN_WIDTH // 3, 250)
+                my_pos = (SCREEN_WIDTH * 2 // 3, 250)
+                other_label = "Player 1 (Host)"
+                my_label = "Player 2 (YOU)"
+                
+            my_color = self.player_color_options[self.current_color_idx]
+            self.draw_player_preview(my_pos, my_color, my_label)
+            
+            pygame.draw.rect(self.screen, self.button_color, (my_pos[0] - 60, 350, 30, 30), border_radius=5)
+            pygame.draw.rect(self.screen, self.button_color, (my_pos[0] + 30, 350, 30, 30), border_radius=5)
+            arrow_left = self.font_subtitle.render('<', True, self.text_color)
+            self.screen.blit(arrow_left, arrow_left.get_rect(center=(my_pos[0] - 45, 365)))
+            arrow_right = self.font_subtitle.render('>', True, self.text_color)
+            self.screen.blit(arrow_right, arrow_right.get_rect(center=(my_pos[0] + 45, 365)))
+            
+            if self.remote_color_idx != -1:
+                r_color = self.player_color_options[self.remote_color_idx]
+                self.draw_player_preview(other_pos, r_color, other_label)
+            else:
+                empty_label = self.font_subtitle.render("Waiting for player...", True, (150, 150, 150))
+                self.screen.blit(empty_label, empty_label.get_rect(center=other_pos))
+                
+            if getattr(self, 'is_host', False):
+                lvl_num = getattr(self, 'multiplayer_selected_level', 0)
+                
+                lvl_label = self.font_subtitle.render('Level:', True, self.text_color)
+                self.screen.blit(lvl_label, lvl_label.get_rect(center=(center_x - 120, 435)))
+                
+                pygame.draw.rect(self.screen, self.button_color, (center_x - 70, 420, 30, 30), border_radius=5)
+                pygame.draw.rect(self.screen, self.button_color, (center_x + 40, 420, 30, 30), border_radius=5)
+                
+                arrow_left = self.font_subtitle.render('<', True, self.text_color)
+                self.screen.blit(arrow_left, arrow_left.get_rect(center=(center_x - 55, 435)))
+                arrow_right = self.font_subtitle.render('>', True, self.text_color)
+                self.screen.blit(arrow_right, arrow_right.get_rect(center=(center_x + 55, 435)))
+                
+                lvl_disp = self.font_title.render(f'{lvl_num + 1}', True, self.text_color)
+                self.screen.blit(lvl_disp, lvl_disp.get_rect(center=(center_x, 435)))
+                
+                start_btn = Button(center_x - 125, 480, 250, 60, 'START GAME', self.button_color, self.button_hover, self.text_color)
+                start_btn.update(pygame.mouse.get_pos())
+                start_btn.draw(self.screen)
+            else:
+                lvl_num = getattr(self, 'multiplayer_selected_level', 0)
+                wait_label = self.font_small.render(f'Waiting for host to start Level {lvl_num + 1}...', True, (200, 200, 200))
+                self.screen.blit(wait_label, wait_label.get_rect(center=(center_x, 480)))
 
     def draw_instructions(self):
         """Draw instructions screen"""

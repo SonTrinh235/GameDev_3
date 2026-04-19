@@ -98,10 +98,6 @@ class Player(pygame.sprite.Sprite):
         speed = DASH_SPEED if self.m.is_dashing else PLAYER_SPEED
         
         move_x = (self.m.direction.x * speed) + self.remainder_x
-        move_int_x = int(move_x)
-        self.remainder_x = move_x - move_int_x
-        self.rect.x += move_int_x
-        self.horizontal_collision()
         
         if self.m.is_dashing:
             move_y = (self.m.direction.y * speed) + self.remainder_y
@@ -109,6 +105,24 @@ class Player(pygame.sprite.Sprite):
             self.m.apply_gravity()
             move_y = self.m.direction.y + self.remainder_y
             
+        if hasattr(self, 'tether_target') and self.tether_target and not self.tether_target.is_dead and not self.is_dead:
+            import math
+            dx = self.tether_target.rect.centerx - self.rect.centerx
+            dy = self.tether_target.rect.centery - self.rect.centery
+            dist = math.hypot(dx, dy)
+            
+            MAX_TETHER = 500
+            if dist > MAX_TETHER:
+                force = (dist - MAX_TETHER) * 0.15
+                angle = math.atan2(dy, dx)
+                move_x += math.cos(angle) * force
+                move_y += math.sin(angle) * force
+
+        move_int_x = int(move_x)
+        self.remainder_x = move_x - move_int_x
+        self.rect.x += move_int_x
+        self.horizontal_collision()
+        
         move_int_y = int(move_y)
         self.remainder_y = move_y - move_int_y
         self.rect.y += move_int_y

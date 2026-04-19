@@ -93,13 +93,13 @@ class Item01(pygame.sprite.Sprite):
         self.animate()
         self.rect.x += self.direction * self.speed
         for sprite in self.collision_sprites:
-            if sprite.rect.colliderect(self.rect):
+            if type(sprite).__name__ != 'RemotePlayer' and sprite.rect.colliderect(self.rect):
                 if self.direction > 0: self.rect.right = sprite.rect.left
                 else: self.rect.left = sprite.rect.right
                 self.direction *= -1
                 return
         l_check = pygame.Rect(self.rect.centerx + (self.direction * 16), self.rect.bottom + 1, 2, 2)
-        if not any(s.rect.colliderect(l_check) for s in self.collision_sprites): self.direction *= -1
+        if not any(type(s).__name__ != 'RemotePlayer' and s.rect.colliderect(l_check) for s in self.collision_sprites): self.direction *= -1
 
 class SurpriseBlock(pygame.sprite.Sprite):
     def __init__(self, pos, size, surf_normal, surf_popped, item_type='trap', surfaces=None):
