@@ -5,9 +5,8 @@ from movement import Movement
 class Player(pygame.sprite.Sprite):
     def __init__(self, pos, groups, obstacle_sprites, player_surfaces, key_bindings=None, color_tint=None):
         super().__init__(groups)
-        self.surfaces = player_surfaces
+        self.surfaces = {k: v.copy() for k, v in player_surfaces.items()}
         
-        # Apply color tint if provided
         if color_tint:
             self.apply_tint(color_tint)
             
@@ -36,13 +35,11 @@ class Player(pygame.sprite.Sprite):
         self.remainder_y = 0.0
 
     def apply_tint(self, color):
-        """Apply a color tint to all player surfaces"""
         for key in self.surfaces:
-            surf = self.surfaces[key].copy()
+            surf = self.surfaces[key]
             color_surf = pygame.Surface(surf.get_size()).convert_alpha()
             color_surf.fill((*color, 255))
             surf.blit(color_surf, (0,0), special_flags=pygame.BLEND_MULT)
-            self.surfaces[key] = surf
 
     def die(self):
         if not self.is_dead:
@@ -174,13 +171,11 @@ class Player(pygame.sprite.Sprite):
             pygame.draw.rect(self.display_surface, color, bar_rect)
 
 class RemotePlayer(pygame.sprite.Sprite):
-    """Player controlled by the network"""
+    """Lớp dành cho người chơi điều khiển qua mạng"""
     def __init__(self, pos, groups, player_surfaces, color_tint=None):
         super().__init__(groups)
         
-        self.surfaces = {}
-        for k, v in player_surfaces.items():
-            self.surfaces[k] = v.copy()
+        self.surfaces = {k: v.copy() for k, v in player_surfaces.items()}
             
         if color_tint:
             self.apply_tint(color_tint)
@@ -195,7 +190,7 @@ class RemotePlayer(pygame.sprite.Sprite):
 
     def apply_tint(self, color):
         for key in self.surfaces:
-            surf = self.surfaces[key].copy()
+            surf = self.surfaces[key]
             color_surf = pygame.Surface(surf.get_size()).convert_alpha()
             color_surf.fill((*color, 255))
             surf.blit(color_surf, (0,0), special_flags=pygame.BLEND_MULT)

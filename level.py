@@ -3,6 +3,7 @@ from settings import *
 from player import Player
 from sprites import StaticTile, Enemy, Enemy01, CrumblingPlatform 
 from item import Item, Item01, Item02, SurpriseBlock, HiddenBlock
+from chain import Chain
 
 class CameraGroup(pygame.sprite.Group):
     def __init__(self, map_data):
@@ -62,6 +63,8 @@ class Level:
         self.death_screen_active = False
         self.death_screen_start = 0
         self.death_screen_duration = 3000
+        self.chain = Chain(num_nodes=18, max_length=300)
+        self.initial_uids = set()
 
         try:
             self.dead_sound = pygame.mixer.Sound('Assets/dead_sound.mp3')
@@ -69,6 +72,33 @@ class Level:
             self.dead_sound = None
 
         self.setup_level()
+
+        if self.is_multiplayer:
+            self.outbound_events.append({"type": "request_sync"})
+    
+    def get_sync_data(self):
+        sync_list = []
+        current_uids = set()
+        all_groups = [
+            self.item_sprites, self.enemy_sprites, self.door_sprites, 
+            self.surprise_blocks, self.hidden_blocks, self.crumble_sprites
+        ]
+        
+        for group in all_groups:
+            for sprite in group:
+                current_uids.add(sprite.uid)
+                if isinstance(sprite, SurpriseBlock) and sprite.is_popped:
+                    sync_list.append({"type": "pop", "uid": sprite.uid})
+                elif isinstance(sprite, HiddenBlock) and sprite.is_revealed:
+                    sync_list.append({"type": "reveal", "uid": sprite.uid})
+                elif isinstance(sprite, CrumblingPlatform) and sprite.activated:
+                    sync_list.append({"type": "crumble", "uid": sprite.uid})
+
+        for uid in self.initial_uids:
+            if uid not in current_uids:
+                sync_list.append({"type": "kill", "uid": uid})
+
+        return sync_list
 
     def setup_level(self):
         for row_index, row in enumerate(self.level_data):
@@ -93,6 +123,9 @@ class Level:
                     if self.is_multiplayer:
                         from player import RemotePlayer
                         self.remote_player = RemotePlayer((x, y), [self.visible_sprites], p_surfs, self.remote_color)
+                    for node in self.chain.nodes:
+                        node.pos = pygame.math.Vector2(self.player.rect.center)
+                        node.old_pos = pygame.math.Vector2(self.player.rect.center)
                 elif cell == 'C':
                     item = Item((x, y), TILE_SIZE, self.surfaces['coin'], 'coin')
                     self.item_sprites.add(item); self.visible_sprites.add(item)
@@ -139,15 +172,18 @@ class Level:
                     h_surf = self.surfaces.get('q_popped')
                     h_block = HiddenBlock((x, y), TILE_SIZE, h_surf)
                     self.hidden_blocks.add(h_block); self.visible_sprites.add(h_block)
+        
+        self.initial_uids.clear()
         for group in [self.item_sprites, self.enemy_sprites, self.door_sprites, self.surprise_blocks, self.hidden_blocks, self.crumble_sprites]:
             for sprite in group:
                 sprite.uid = f"{type(sprite).__name__}_{sprite.rect.x}_{sprite.rect.y}"
+                self.initial_uids.add(sprite.uid)
 
-    def trigger_death(self):
+    def trigger_death(self, send_event=True):
         if not self.player.is_dead:
             self.death_count += 1
             self.player.die()
-            if hasattr(self, 'outbound_events'):
+            if self.is_multiplayer and send_event:
                 self.outbound_events.append({"type": "die"})
             self.death_screen_active = True
             self.death_screen_start = pygame.time.get_ticks()
@@ -188,20 +224,42 @@ class Level:
         self.has_key = False
         self.setup_level()
 
+    def find_and_interact(self, uid, action, e_type):
+        groups = [
+            self.item_sprites, self.enemy_sprites, self.door_sprites, 
+            self.surprise_blocks, self.hidden_blocks, self.crumble_sprites
+        ]
+        for group in groups:
+            for sprite in group:
+                if getattr(sprite, 'uid', None) == uid:
+                    action(sprite)
+                    if e_type in ['kill', 'crumble'] and sprite in self.collision_sprites:
+                        self.collision_sprites.remove(sprite)
+                    return
+
     def process_network_events(self, events):
         for event in events:
-            if event.get('type') == 'die':
-                self.reset()
-            elif event.get('type') == 'kill':
-                uid = event.get('uid')
-                for group in [self.item_sprites, self.enemy_sprites, self.door_sprites, self.surprise_blocks, self.hidden_blocks, self.crumble_sprites]:
-                    for sprite in group:
-                        if getattr(sprite, 'uid', None) == uid:
-                            sprite.kill()
-                            if sprite in self.collision_sprites:
-                                self.collision_sprites.remove(sprite)
-                            break
-            elif event.get('type') == 'remote_goal':
+            e_type = event.get('type')
+            uid = event.get('uid')
+            
+            if e_type == 'request_sync':
+                sync_data = self.get_sync_data()
+                self.outbound_events.append({"type": "initial_sync", "data": sync_data})
+            elif e_type == 'initial_sync':
+                data = event.get('data', [])
+                for sub_event in data:
+                    self.process_network_events([sub_event])
+            elif e_type == 'die':
+                self.trigger_death(send_event=False)
+            elif e_type == 'kill':
+                self.find_and_interact(uid, lambda s: s.kill(), e_type)
+            elif e_type == 'pop':
+                self.find_and_interact(uid, lambda s: s.spawn_trap(self.trap_sprites, self.visible_sprites, self.collision_sprites, self.item_sprites), e_type)
+            elif e_type == 'reveal':
+                self.find_and_interact(uid, lambda s: s.reveal(self.collision_sprites), e_type)
+            elif e_type == 'crumble':
+                self.find_and_interact(uid, lambda s: s.start_crumbling(self.crumble_sprites), e_type)
+            elif e_type == 'remote_goal':
                 self.remote_at_goal = event.get('at_goal', False)
 
     def interaction(self):
@@ -213,6 +271,7 @@ class Level:
                 head_rect = self.player.rect.move(0, -2)
                 if h_block.rect.colliderect(head_rect) and self.player.m.direction.y < 0:
                     h_block.reveal(self.collision_sprites)
+                    self.outbound_events.append({"type": "reveal", "uid": h_block.uid})
                     self.player.rect.top = h_block.rect.bottom
                     self.player.m.direction.y = 0
                     self.player.remainder_y = 0
@@ -222,6 +281,7 @@ class Level:
                 head_rect = pygame.Rect(self.player.rect.left + 5, self.player.rect.top - 5, self.player.rect.width - 10, 10)
                 if block.rect.colliderect(head_rect) and self.player.m.direction.y <= 0:
                     block.spawn_trap(self.trap_sprites, self.visible_sprites, self.collision_sprites, self.item_sprites)
+                    self.outbound_events.append({"type": "pop", "uid": block.uid})
                     self.player.rect.top = block.rect.bottom
                     self.player.m.direction.y = 0
                     self.player.remainder_y = 0
@@ -229,6 +289,7 @@ class Level:
         for death_sprite in list(self.spike_sprites) + list(self.trap_sprites):
             if death_sprite.rect.colliderect(self.player.rect):
                 if getattr(self.player, 'is_big', False):
+                    self.outbound_events.append({"type": "kill", "uid": getattr(death_sprite, 'uid', None)})
                     death_sprite.kill()
                 else:
                     self.trigger_death()
@@ -236,7 +297,9 @@ class Level:
 
         for platform in self.crumble_sprites:
             if platform.rect.colliderect(self.player.rect.move(0, 2)) and self.player.on_ground:
-                platform.start_crumbling(self.crumble_sprites)
+                if not platform.activated:
+                    platform.start_crumbling(self.crumble_sprites)
+                    self.outbound_events.append({"type": "crumble", "uid": platform.uid})
             if platform.activated and platform in self.collision_sprites:
                 self.collision_sprites.remove(platform)
 
@@ -244,8 +307,8 @@ class Level:
         for item in items_hit:
             if isinstance(item, Item02):
                 if hasattr(self.player, 'grow'): self.player.grow()
-                item.kill()
                 self.outbound_events.append({"type": "kill", "uid": getattr(item, 'uid', None)})
+                item.kill()
             elif isinstance(item, Item01):
                 self.trigger_death()
                 return
@@ -258,6 +321,7 @@ class Level:
                 for sprite in targets:
                     if sprite.rect.colliderect(foot_rect):
                         if sprite != self.player:
+                            self.outbound_events.append({"type": "kill", "uid": getattr(sprite, 'uid', None)})
                             sprite.kill()
                             if sprite in self.collision_sprites:
                                 self.collision_sprites.remove(sprite)
@@ -265,16 +329,18 @@ class Level:
         for enemy in self.enemy_sprites.sprites():
             if pygame.sprite.spritecollide(enemy, self.trap_sprites, False) or \
                pygame.sprite.spritecollide(enemy, self.spike_sprites, False):
+                self.outbound_events.append({"type": "kill", "uid": getattr(enemy, 'uid', None)})
                 enemy.kill()
                 continue
             for block in self.surprise_blocks:
                 if block.rect.colliderect(enemy.rect.move(0, -2)) and block.rect.bottom <= enemy.rect.top + 5:
+                    self.outbound_events.append({"type": "kill", "uid": getattr(enemy, 'uid', None)})
                     enemy.kill()
                     break
             if enemy.rect.colliderect(self.player.rect):
                 if self.player.m.direction.y > 0 and self.player.rect.bottom <= enemy.rect.bottom + 10:
-                    enemy.kill()
                     self.outbound_events.append({"type": "kill", "uid": getattr(enemy, 'uid', None)})
+                    enemy.kill()
                     self.player.m.direction.y = JUMP_SPEED * 0.8
                     self.player.m.has_dashed = False 
                 else:
@@ -298,19 +364,19 @@ class Level:
                 elif item.item_type in ['coin', 'star']:
                     if item.item_type == 'coin':
                         self.coins_collected += 1
-                    item.kill()
                     self.outbound_events.append({"type": "kill", "uid": getattr(item, 'uid', None)})
+                    item.kill()
 
         if self.has_key:
             for door in self.door_sprites.sprites():
                 if self.player.rect.inflate(10, 10).colliderect(door.rect):
-                    door.kill()
                     self.outbound_events.append({"type": "kill", "uid": getattr(door, 'uid', None)})
+                    door.kill()
                     self.has_key = False
                     for item in self.item_sprites.sprites():
                         if isinstance(item, Item) and item.item_type == 'key' and item.is_following:
-                            item.kill()
                             self.outbound_events.append({"type": "kill", "uid": getattr(item, 'uid', None)})
+                            item.kill()
 
         if pygame.sprite.spritecollide(self.player, self.goal_sprites, False):
             self.player_at_goal = True
@@ -318,9 +384,7 @@ class Level:
             self.player_at_goal = False
             
         if self.is_multiplayer:
-            # Sync goal state
             self.outbound_events.append({"type": "remote_goal", "at_goal": self.player_at_goal})
-            
             if self.player_at_goal and self.remote_at_goal:
                 self.trigger_next_level()
         else:
@@ -331,22 +395,45 @@ class Level:
             self.trigger_death()
 
     def run(self):
-        if self.death_screen_active:
-            elapsed = pygame.time.get_ticks() - self.death_screen_start
-            if elapsed >= self.death_screen_duration:
-                self.death_screen_active = False
-                self.reset()
-                pygame.mixer.music.unpause()
-            else:
-                self.draw_death_screen()
-            return
+            if self.death_screen_active:
+                elapsed = pygame.time.get_ticks() - self.death_screen_start
+                if elapsed >= self.death_screen_duration:
+                    self.death_screen_active = False
+                    self.reset()
+                    pygame.mixer.music.unpause()
+                else:
+                    self.draw_death_screen()
+                return
 
-        self.visible_sprites.update(self.player.rect.center)
-        self.interaction()
-        self.visible_sprites.custom_draw(self.player)
-        self.player.draw_stamina(self.visible_sprites.offset)
-        self.draw_death_counter()
-        self.draw_coins_counter()
+            self.visible_sprites.update(self.player.rect.center)
+            self.enemy_sprites.update()
+            self.crumble_sprites.update()
+            self.item_sprites.update()
+            self.trap_sprites.update()
+            self.surprise_blocks.update()
+            
+            if self.is_multiplayer and self.remote_player:
+                self.chain.update(
+                    pygame.math.Vector2(self.player.rect.center),
+                    pygame.math.Vector2(self.remote_player.rect.center),
+                    self.collision_sprites,
+                    self.player
+                )
+
+            self.interaction()
+            if self.is_multiplayer and self.remote_player:
+                self.chain.draw(
+                    self.display_surface, 
+                    self.visible_sprites.offset,
+                    pygame.math.Vector2(self.player.rect.center),
+                    pygame.math.Vector2(self.remote_player.rect.center)
+                )
+
+            self.visible_sprites.custom_draw(self.player)
+            
+            self.player.draw_stamina(self.visible_sprites.offset)
+            self.draw_death_counter()
+            self.draw_coins_counter()
     
     def draw_death_counter(self):
         """Draw the death counter on the screen"""
