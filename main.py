@@ -95,57 +95,78 @@ class Game:
                 
                 if self.status == 'menu':
                     result = self.menu.handle_event(event)
-                    
                     if result == 'quit':
                         pygame.quit()
                         sys.exit()
-                    elif isinstance(result, tuple) and result[0] == 'start_game':
-                        self.current_level_index = result[1]
-                        self.start_level()
-                        self.status = 'playing'
-                    elif isinstance(result, tuple) and result[0] == 'start_multiplayer':
-                        if self.network.connect(self.menu.server_ip):
+                    elif isinstance(result, tuple):
+                        if result[0] == 'start_game':
                             self.current_level_index = result[1]
                             self.start_level()
                             self.status = 'playing'
-                        else:
-                            print("[UI] Cannot connect to server")
-                
+                        elif result[0] == 'connect_lobby':
+                            if self.network.connect(result[1]):
+                                self.menu.lobby_connected = True
+                                self.menu.is_host = (self.network.id == 1)
+                                # Gửi thông tin màu của mình ngay khi vừa kết nối
+                                self.network.send({"type": "lobby_color", "color_idx": self.menu.current_color_idx})
+                        elif result[0] == 'update_color':
+                            self.network.send({"type": "lobby_color", "color_idx": result[1]})
+                        elif result[0] == 'update_lobby_level':
+                            self.network.send({"type": "lobby_level", "level": result[1]})
+                        elif result[0] == 'start_multiplayer':
+                            self.network.send({"type": "host_start", "level": result[1]})
+                            self.current_level_index = result[1]
+                            self.start_level()
+                            self.status = 'playing'
+                    elif result == 'disconnect_lobby':
+                        self.network.connected = False
+                        self.menu.lobby_connected = False
+
                 elif self.status == 'playing':
                     if event.type == pygame.KEYDOWN:
-                        if event.key == pygame.K_r:
-                            self.restart_current_level()
+                        if event.key == pygame.K_r: self.restart_current_level()
                         if event.key == pygame.K_p:
                             self.status = 'paused'
-                            if self.bgm:
-                                pygame.mixer.music.pause()
+                            if self.bgm: pygame.mixer.music.pause()
                         if event.key == pygame.K_ESCAPE:
                             self.status = 'menu'
                             self.menu.current_screen = 'main'
-                            if self.bgm:
-                                pygame.mixer.music.stop()
+                            if self.bgm: pygame.mixer.music.stop()
                 
                 elif self.status == 'paused':
                     result = self.pause_menu.handle_event(event)
-                    
                     if result == 'resume':
                         self.status = 'playing'
-                        if self.bgm and self.menu.sound_enabled:
-                            pygame.mixer.music.unpause()  # Resume BGM
+                        if self.bgm and self.menu.sound_enabled: pygame.mixer.music.unpause()
                     elif result == 'main_menu':
                         self.status = 'menu'
                         self.menu.current_screen = 'main'
-                        if self.bgm:
-                            pygame.mixer.music.stop()
+                        if self.bgm: pygame.mixer.music.stop()
                     elif result == 'quit':
-                        pygame.quit()
-                        sys.exit()
+                        pygame.quit(); sys.exit()
 
+            # --- LOGIC ĐỒNG BỘ MẠNG TRONG MENU ---
             if self.status == 'menu':
+                if self.menu.lobby_connected:
+                    net_events = self.network.get_events()
+                    for ne in net_events:
+                        if ne.get('type') == 'lobby_color':
+                            self.menu.remote_color_idx = ne.get('color_idx')
+                            # Gửi lại thông tin của mình để người kia thấy mình
+                            self.network.send({"type": "lobby_sync", "remote_color": self.menu.current_color_idx, "level": self.menu.multiplayer_selected_level})
+                        elif ne.get('type') == 'lobby_sync':
+                            self.menu.remote_color_idx = ne.get('remote_color')
+                            self.menu.multiplayer_selected_level = ne.get('level')
+                        elif ne.get('type') == 'lobby_level':
+                            self.menu.multiplayer_selected_level = ne.get('level')
+                        elif ne.get('type') == 'host_start':
+                            self.current_level_index = ne.get('level')
+                            self.start_level()
+                            self.status = 'playing'
                 self.menu.draw()
+            
             elif self.status == 'playing':
                 self.screen.fill(BG_COLOR)
-                
                 if self.menu.is_multiplayer and self.network.connected:
                     events = self.network.get_events()
                     sync_events = []
@@ -159,16 +180,11 @@ class Game:
                     
                     if getattr(self.level, 'player', None):
                         p = self.level.player
-                        pack = {
-                            "type": "state",
-                            "x": p.rect.x,
-                            "y": p.rect.y,
-                            "facing_right": p.facing_right,
-                            "is_dead": p.is_dead,
-                            "is_big": p.is_big,
-                            "is_dashing": p.m.is_dashing
-                        }
-                        self.network.send(pack)
+                        self.network.send({
+                            "type": "state", "x": p.rect.x, "y": p.rect.y,
+                            "facing_right": p.facing_right, "is_dead": p.is_dead,
+                            "is_big": p.is_big, "is_dashing": p.m.is_dashing
+                        })
                         
                     if getattr(self.level, 'outbound_events', None):
                         for ev in self.level.outbound_events:
@@ -177,6 +193,7 @@ class Game:
 
                 self.level.run()
                 self.draw_pause_button()
+            
             elif self.status == 'paused':
                 self.screen.fill(BG_COLOR)
                 self.level.run()

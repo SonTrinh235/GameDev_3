@@ -171,10 +171,8 @@ class Player(pygame.sprite.Sprite):
             pygame.draw.rect(self.display_surface, color, bar_rect)
 
 class RemotePlayer(pygame.sprite.Sprite):
-    """Lớp dành cho người chơi điều khiển qua mạng"""
     def __init__(self, pos, groups, player_surfaces, color_tint=None):
         super().__init__(groups)
-        
         self.surfaces = {k: v.copy() for k, v in player_surfaces.items()}
             
         if color_tint:
@@ -182,6 +180,14 @@ class RemotePlayer(pygame.sprite.Sprite):
             
         self.image = self.surfaces['player_default']
         self.rect = self.image.get_rect(topleft = pos)
+        
+        try:
+            full_surf = pygame.image.load("Assets/graphics/Big_One.png").convert_alpha()
+            self.big_surf = pygame.transform.scale(full_surf, (82, 140))
+        except:
+            self.big_surf = pygame.Surface((82, 140))
+            self.big_surf.fill('Red')
+
         self.target_pos = list(pos)
         self.facing_right = True
         self.is_dead = False
@@ -194,7 +200,6 @@ class RemotePlayer(pygame.sprite.Sprite):
             color_surf = pygame.Surface(surf.get_size()).convert_alpha()
             color_surf.fill((*color, 255))
             surf.blit(color_surf, (0,0), special_flags=pygame.BLEND_MULT)
-            self.surfaces[key] = surf
 
     def update_network_state(self, state):
         self.target_pos = [state.get('x', self.rect.x), state.get('y', self.rect.y)]
@@ -209,6 +214,8 @@ class RemotePlayer(pygame.sprite.Sprite):
     def animate(self):
         if self.is_dead:
             img = self.surfaces['player_die']
+        elif self.is_big:
+            img = self.big_surf
         elif self.is_dashing:
             img = self.surfaces['player_dash']
         else:
@@ -218,7 +225,6 @@ class RemotePlayer(pygame.sprite.Sprite):
             img = pygame.transform.flip(img, True, False)
             
         self.image = img
-        
         curr_bottom = self.rect.bottom
         curr_centerx = self.rect.centerx
         self.rect = self.image.get_rect(midbottom = (curr_centerx, curr_bottom))

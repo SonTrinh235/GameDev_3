@@ -63,7 +63,7 @@ class Level:
         self.death_screen_active = False
         self.death_screen_start = 0
         self.death_screen_duration = 3000
-        self.chain = Chain(num_nodes=18, max_length=300)
+        self.chain = Chain(num_nodes=25, max_length=220)
         self.initial_uids = set()
 
         try:
@@ -227,13 +227,14 @@ class Level:
     def find_and_interact(self, uid, action, e_type):
         groups = [
             self.item_sprites, self.enemy_sprites, self.door_sprites, 
-            self.surprise_blocks, self.hidden_blocks, self.crumble_sprites
+            self.surprise_blocks, self.hidden_blocks, self.crumble_sprites,
+            self.spike_sprites, self.trap_sprites # Thêm 2 nhóm này
         ]
         for group in groups:
             for sprite in group:
                 if getattr(sprite, 'uid', None) == uid:
                     action(sprite)
-                    if e_type in ['kill', 'crumble'] and sprite in self.collision_sprites:
+                    if e_type == 'kill' and sprite in self.collision_sprites:
                         self.collision_sprites.remove(sprite)
                     return
 
