@@ -123,6 +123,8 @@ class Game:
                     if event.type == pygame.KEYDOWN:
                         if event.key == pygame.K_r:
                             self.restart_current_level()
+                            if getattr(self.menu, 'is_multiplayer', False):
+                                self.network.send({"type": "restart_level"})
                         if event.key == pygame.K_ESCAPE:
                             self.status = 'paused'
                             if self.bgm:
@@ -214,6 +216,8 @@ class Game:
                                 self.menu.current_screen = 'main'
                                 if self.bgm:
                                     pygame.mixer.music.stop()
+                            elif e.get("type") == "restart_level":
+                                self.restart_current_level()
                             else:
                                 sync_events.append(e)
                         self.level.process_network_events(sync_events)

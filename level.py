@@ -42,6 +42,7 @@ class Level:
         self.remote_player = None
         self.player_at_goal = False
         self.remote_at_goal = False
+        self.last_sent_goal = None
         
         self.visible_sprites = CameraGroup(self.level_data)
         self.collision_sprites = pygame.sprite.Group()
@@ -148,9 +149,10 @@ class Level:
                     h_surf = self.surfaces.get('q_popped')
                     h_block = HiddenBlock((x, y), TILE_SIZE, h_surf)
                     self.hidden_blocks.add(h_block); self.visible_sprites.add(h_block)
-        for group in [self.item_sprites, self.enemy_sprites, self.door_sprites, self.surprise_blocks, self.hidden_blocks, self.crumble_sprites]:
+        for group in [self.item_sprites, self.enemy_sprites, self.door_sprites, self.surprise_blocks, self.hidden_blocks, self.crumble_sprites, self.spike_sprites, self.collision_sprites]:
             for sprite in group:
-                sprite.uid = f"{type(sprite).__name__}_{sprite.rect.x}_{sprite.rect.y}"
+                if not hasattr(sprite, 'uid'):
+                    sprite.uid = f"{type(sprite).__name__}_{sprite.rect.x}_{sprite.rect.y}"
 
     def trigger_death(self):
         if not self.player.is_dead:
@@ -235,15 +237,40 @@ class Level:
                     self.dead_sound.play()
             elif event.get('type') == 'kill':
                 uid = event.get('uid')
-                for group in [self.item_sprites, self.enemy_sprites, self.door_sprites, self.surprise_blocks, self.hidden_blocks, self.crumble_sprites]:
+                for group in [self.item_sprites, self.enemy_sprites, self.door_sprites, self.surprise_blocks, self.hidden_blocks, self.crumble_sprites, self.spike_sprites, self.collision_sprites]:
                     for sprite in group:
                         if getattr(sprite, 'uid', None) == uid:
                             sprite.kill()
                             if sprite in self.collision_sprites:
                                 self.collision_sprites.remove(sprite)
                             break
+            elif event.get('type') == 'grab_key':
+                uid = event.get('uid')
+                for item in self.item_sprites.sprites():
+                    if getattr(item, 'uid', None) == uid and isinstance(item, type(item)) and getattr(item, 'item_type', '') == 'key':
+                        item.is_following = True
+                        item.target = getattr(self, 'remote_player', None)
+                        break
             elif event.get('type') == 'remote_goal':
                 self.remote_at_goal = event.get('at_goal', False)
+            elif event.get('type') == 'reveal':
+                uid = event.get('uid')
+                for h_block in self.hidden_blocks:
+                    if getattr(h_block, 'uid', None) == uid:
+                        h_block.reveal(self.collision_sprites)
+                        break
+            elif event.get('type') == 'pop':
+                uid = event.get('uid')
+                for block in self.surprise_blocks:
+                    if getattr(block, 'uid', None) == uid:
+                        block.spawn_trap(self.trap_sprites, self.visible_sprites, self.collision_sprites, self.item_sprites)
+                        break
+            elif event.get('type') == 'crumble':
+                uid = event.get('uid')
+                for platform in self.crumble_sprites:
+                    if getattr(platform, 'uid', None) == uid:
+                        platform.start_crumbling(self.crumble_sprites)
+                        break
 
     def interaction(self):
         if self.player.is_dead:
@@ -254,6 +281,8 @@ class Level:
                 head_rect = self.player.rect.move(0, -2)
                 if h_block.rect.colliderect(head_rect) and self.player.m.direction.y < 0:
                     h_block.reveal(self.collision_sprites)
+                    if hasattr(self, 'outbound_events'):
+                        self.outbound_events.append({"type": "reveal", "uid": getattr(h_block, 'uid', None)})
                     self.player.rect.top = h_block.rect.bottom
                     self.player.m.direction.y = 0
                     self.player.remainder_y = 0
@@ -263,6 +292,8 @@ class Level:
                 head_rect = pygame.Rect(self.player.rect.left + 5, self.player.rect.top - 5, self.player.rect.width - 10, 10)
                 if block.rect.colliderect(head_rect) and self.player.m.direction.y <= 0:
                     block.spawn_trap(self.trap_sprites, self.visible_sprites, self.collision_sprites, self.item_sprites)
+                    if hasattr(self, 'outbound_events'):
+                        self.outbound_events.append({"type": "pop", "uid": getattr(block, 'uid', None)})
                     self.player.rect.top = block.rect.bottom
                     self.player.m.direction.y = 0
                     self.player.remainder_y = 0
@@ -277,7 +308,10 @@ class Level:
 
         for platform in self.crumble_sprites:
             if platform.rect.colliderect(self.player.rect.move(0, 2)) and self.player.on_ground:
-                platform.start_crumbling(self.crumble_sprites)
+                if not platform.activated:
+                    platform.start_crumbling(self.crumble_sprites)
+                    if hasattr(self, 'outbound_events'):
+                        self.outbound_events.append({"type": "crumble", "uid": getattr(platform, 'uid', None)})
             if platform.activated and platform in self.collision_sprites:
                 self.collision_sprites.remove(platform)
 
@@ -302,15 +336,21 @@ class Level:
                             sprite.kill()
                             if sprite in self.collision_sprites:
                                 self.collision_sprites.remove(sprite)
+                            if hasattr(self, 'outbound_events'):
+                                self.outbound_events.append({"type": "kill", "uid": getattr(sprite, 'uid', None)})
 
         for enemy in self.enemy_sprites.sprites():
             if pygame.sprite.spritecollide(enemy, self.trap_sprites, False) or \
                pygame.sprite.spritecollide(enemy, self.spike_sprites, False):
                 enemy.kill()
+                if hasattr(self, 'outbound_events'):
+                    self.outbound_events.append({"type": "kill", "uid": getattr(enemy, 'uid', None)})
                 continue
             for block in self.surprise_blocks:
                 if block.rect.colliderect(enemy.rect.move(0, -2)) and block.rect.bottom <= enemy.rect.top + 5:
                     enemy.kill()
+                    if hasattr(self, 'outbound_events'):
+                        self.outbound_events.append({"type": "kill", "uid": getattr(enemy, 'uid', None)})
                     break
             if enemy.rect.colliderect(self.player.rect):
                 if self.player.m.direction.y > 0 and self.player.rect.bottom <= enemy.rect.bottom + 10:
@@ -336,6 +376,8 @@ class Level:
                     self.has_key = True
                     item.is_following = True
                     item.target = self.player
+                    if hasattr(self, 'outbound_events'):
+                        self.outbound_events.append({"type": "grab_key", "uid": getattr(item, 'uid', None)})
                 elif item.item_type in ['coin', 'star']:
                     if item.item_type == 'coin':
                         self.coins_collected += 1
@@ -360,7 +402,9 @@ class Level:
             
         if self.is_multiplayer:
             # Sync goal state
-            self.outbound_events.append({"type": "remote_goal", "at_goal": self.player_at_goal})
+            if getattr(self, 'last_sent_goal', None) != self.player_at_goal:
+                self.outbound_events.append({"type": "remote_goal", "at_goal": self.player_at_goal})
+                self.last_sent_goal = self.player_at_goal
             
             if self.player_at_goal and self.remote_at_goal:
                 self.trigger_next_level()
